@@ -6,7 +6,7 @@
 extern bool motor_encendido;
 
 // VIN simulado
-String vin_actual = "1G1JC5244R7252367";
+String vin_actual = "VF1KZ000647300914";
 
 // responder comando OBD para VIN
 void responderVIN(String cmd) {

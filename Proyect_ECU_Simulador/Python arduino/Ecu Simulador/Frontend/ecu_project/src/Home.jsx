@@ -36,24 +36,35 @@ function Home() {
   };
 
   return (
-    <div className="duo-bg">
-      <h1 className="duo-title">Simulador OBD2</h1>
+    <>
+      {datos.vehiculo && getLogoPorMarca(datos.vehiculo.marca) && (
+        <img
+          src={getLogoPorMarca(datos.vehiculo.marca)}
+          alt={datos.vehiculo.marca}
+          className="duo-corner-logo"
+          onError={e => { e.target.style.display = 'none'; }}
+        />
+      )}
+      <div className="duo-bg">
+      <h1 className="duo-title">Simulador OBD-II Engine</h1>
 
       {datos.error ? (
         <span className="duo-error">{datos.error}</span>
       ) : (
         <>
           {datos.vehiculo && (
-            <div className="duo-pill">
-              <span className="duo-pill-label">VIN</span> <span className="duo-pill-value">{datos.vehiculo.vin}</span>
-              <span className="duo-pill-sep" />
-              <span className="duo-pill-label">{datos.vehiculo.marca}</span>
-              <span className="duo-pill-sep" />
-              <span className="duo-pill-label">{datos.vehiculo.modelo}</span>
-              <span className="duo-pill-sep" />
-              <span className="duo-pill-label">{datos.vehiculo.año}</span>
-              <span className="duo-pill-sep" />
-              <span className="duo-pill-label">{datos.vehiculo.pais}</span>
+            <div className="duo-pill-row">
+              <div className="duo-pill">
+                <span className="duo-pill-label">VIN</span> <span className="duo-pill-value">{datos.vehiculo.vin}</span>
+                <span className="duo-pill-sep" />
+                <span className="duo-pill-label">{datos.vehiculo.marca}</span>
+                <span className="duo-pill-sep" />
+                <span className="duo-pill-label">{datos.vehiculo.modelo}</span>
+                <span className="duo-pill-sep" />
+                <span className="duo-pill-label">{datos.vehiculo.año}</span>
+                <span className="duo-pill-sep" />
+                <span className="duo-pill-label">{datos.vehiculo.pais}</span>
+              </div>
             </div>
           )}
 
@@ -120,9 +131,53 @@ function Home() {
         </>
       )}
     </div>
+    </>
   );
 }
 
+
+// Logo de marca por nombre
+function getLogoPorMarca(marca) {
+  const slugs = {
+    'Toyota':      'toyota',
+    'Honda':       'honda',
+    'Ford':        'ford',
+    'Chevrolet':   'chevrolet',
+    'Volkswagen':  'volkswagen',
+    'BMW':         'bmw',
+    'Mercedes':    'mercedes-benz',
+    'Audi':        'audi',
+    'Nissan':      'nissan',
+    'Hyundai':     'hyundai',
+    'Kia':         'kia',
+    'Mazda':       'mazda',
+    'Subaru':      'subaru',
+    'Jeep':        'jeep',
+    'Dodge':       'dodge',
+    'Ram':         'ram',
+    'Renault':     'renault',
+    'Peugeot':     'peugeot',
+    'Fiat':        'fiat',
+    'Volvo':       'volvo',
+    'Porsche':     'porsche',
+    'Ferrari':     'ferrari',
+    'Lamborghini': 'lamborghini',
+    'Mitsubishi':  'mitsubishi',
+    'Suzuki':      'suzuki',
+    'Lexus':       'lexus',
+    'Infiniti':    'infiniti',
+    'Acura':       'acura',
+    'Cadillac':    'cadillac',
+    'Buick':       'buick',
+    'Lincoln':     'lincoln',
+    'Alfa Romeo':  'alfa-romeo',
+    'Seat':        'seat',
+    'Skoda':       'skoda',
+  };
+  const slug = slugs[marca];
+  if (!slug) return '';
+  return `https://raw.githubusercontent.com/filippofilip95/car-logos-dataset/master/logos/optimized/${slug}.png`;
+}
 
 // Decodifica RPM tipo "41 0C XX YY"
 function decodificarRpm(valor) {

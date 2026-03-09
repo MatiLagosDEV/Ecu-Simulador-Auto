@@ -8,6 +8,35 @@
   z-index: 1;
 }
 
+.duo-brand-area {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: -60px;
+}
+
+.duo-brand-logo {
+  width: 90px;
+  height: 90px;
+  object-fit: contain;
+  filter: drop-shadow(0 0 12px rgba(255,255,255,0.25));
+  background: rgba(255,255,255,0.06);
+  border-radius: 50%;
+  padding: 12px;
+  border: 1.5px solid rgba(255,255,255,0.12);
+  backdrop-filter: blur(6px);
+}
+
+.duo-brand-name {
+  font-size: 0.78rem;
+  font-weight: 700;
+  letter-spacing: 3px;
+  text-transform: uppercase;
+  color: rgba(255,255,255,0.6);
+  font-family: 'Montserrat', Arial, sans-serif;
+}
+
 .duo-ignition-area {
   display: flex;
   flex-direction: column;
@@ -101,6 +130,7 @@ body {
   padding: 0;
   background: linear-gradient(135deg, #1a1a2e 0%, #16213e 40%, #0f3460 100%);
   font-family: 'Segoe UI', 'Montserrat', Arial, sans-serif;
+  overflow-x: hidden;
 }
 
 .duo-bg {
@@ -110,7 +140,6 @@ body {
   align-items: center;
   padding: 40px 20px 60px 20px;
   position: relative;
-  overflow: hidden;
 }
 
 .duo-bg::before {
@@ -152,6 +181,33 @@ body {
 }
 
 /* ===== PILL DE VEHÍCULO ===== */
+.duo-pill-row {
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  gap: 16px;
+  margin-bottom: 32px;
+  z-index: 1;
+  position: relative;
+}
+
+.duo-corner-logo {
+  position: fixed;
+  top: 20px;
+  right: 24px;
+  width: 160px;
+  height: 160px;
+  object-fit: contain;
+  filter: drop-shadow(0 0 20px rgba(255,255,255,0.4));
+  background: rgba(255,255,255,0.07);
+  border-radius: 50%;
+  padding: 18px;
+  border: 1.5px solid rgba(255,255,255,0.15);
+  backdrop-filter: blur(8px);
+  z-index: 100;
+}
+
+
 .duo-pill {
   display: flex;
   flex-direction: row;
@@ -164,7 +220,6 @@ body {
   backdrop-filter: blur(16px);
   -webkit-backdrop-filter: blur(16px);
   box-shadow: 0 4px 24px #0004, 0 1px 0 rgba(255,255,255,0.12) inset;
-  margin-bottom: 32px;
   z-index: 1;
   position: relative;
   flex-wrap: wrap;
