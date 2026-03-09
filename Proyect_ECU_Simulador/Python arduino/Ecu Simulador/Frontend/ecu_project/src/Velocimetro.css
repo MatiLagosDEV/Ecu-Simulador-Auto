@@ -1,0 +1,54 @@
+.velocimetro-container {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  background: transparent;
+  border-radius: 50%;
+  width: 480px;
+  height: 480px;
+  max-width: 480px;
+  margin: 0;
+  padding: 0;
+  flex-shrink: 0;
+}
+
+.velocimetro-pro svg {
+  width: 480px;
+  height: 480px;
+  border-radius: 50%;
+  overflow: visible;
+}
+
+.velocimetro-container text {
+  font-family: 'Montserrat', Arial, sans-serif;
+  user-select: none;
+}
+
+.velocimetro-container text {
+  font-family: 'Montserrat', Arial, sans-serif;
+  text-shadow: 1px 1px 8px #000;
+  user-select: none;
+}
+
+.velocimetro-pro text {
+  font-family: 'Digital-7', monospace, 'Montserrat', Arial, sans-serif;
+  letter-spacing: 2px;
+  filter: drop-shadow(0 0 6px #000);
+}
+
+.velocimetro-pro ellipse {
+  filter: drop-shadow(0 0 24px #2196f3aa);
+}
+
+.velocimetro-pro .digital {
+  font-size: 44px;
+  color: #2196f3;
+  letter-spacing: 4px;
+  text-shadow: 0 0 8px #2196f3;
+}
+
+.velocimetro-pro .kmh {
+  font-size: 24px;
+  color: #fff;
+  font-weight: bold;
+}

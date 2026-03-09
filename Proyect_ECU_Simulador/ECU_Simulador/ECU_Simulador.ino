@@ -2,6 +2,7 @@
 #include "PIDsMotor.h"
 #include "PIDsBateria.h"
 #include "PIDSCODIGO.h"
+#include "PIDsVin.h"    // <-- nuevo include
 
 bool motor_encendido = false;
 String comando = "";
@@ -19,6 +20,13 @@ void loop() {
   // actualizar sistema de diagnóstico
   actualizarDiagnostico();
 
+  // actualizar estado del Check Engine
+  actualizarCheckEngine();
+
+  // actualizar simulación constantemente
+  actualizarMotor(motor_encendido);
+  actualizarBateria(motor_encendido ? rpm : 0);
+
   // revisar comandos
   if (Serial.available()) {
 
@@ -35,40 +43,38 @@ void loop() {
       motor_encendido = false;
 
     } 
+    else if (comando == "0101") {   // estado MIL
+      responderEstadoMIL();
+    }
+
+    else if (comando == "03") {     // leer DTC
+      enviarCodigos();
+    }
+
+    else if (comando == "04") {     // borrar DTC
+      borrarCodigos();
+    }
+
+    else if (comando.startsWith("DEL")) {
+
+      String codigo = comando.substring(4);
+      codigo.trim();
+      borrarCodigo(codigo);
+    }
+
+    else if (comando.startsWith("09")) {  // <-- nuevo: PID VIN
+      responderVIN(comando);
+    }
+
     else {
 
-      // actualizar simulación del motor
-      actualizarMotor(motor_encendido);
-
-      // actualizar batería
-      actualizarBateria(motor_encendido ? rpm : 0);
-
-      // responder PIDs
+      // responder sensores
       responderMotor(comando);
       responderBateria(comando);
 
-      // leer códigos de error
-      if (comando == "03") {
-        enviarCodigos();
-      }
-
-      // borrar todos los códigos
-      else if (comando == "04") {
-        borrarCodigos();
-      }
-
-      // borrar un código específico
-      else if (comando.startsWith("DEL")) {
-
-        String codigo = comando.substring(4);
-        codigo.trim();
-
-        borrarCodigo(codigo);
-      }
-
     }
 
-    // LED indica recepción de comando
+    // LED actividad serial
     digitalWrite(LED_BUILTIN, HIGH);
     delay(50);
     digitalWrite(LED_BUILTIN, LOW);

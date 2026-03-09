@@ -1,0 +1,29 @@
+.tacometro-container {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  background: transparent;
+  border-radius: 50%;
+  width: 480px;
+  height: 480px;
+  max-width: 480px;
+  margin: 0;
+  padding: 0;
+  flex-shrink: 0;
+}
+
+.tacometro-pro svg {
+  width: 480px;
+  height: 480px;
+  border-radius: 50%;
+  overflow: visible;
+}
+
+.tacometro-container text {
+  font-family: 'Montserrat', Arial, sans-serif;
+  user-select: none;
+}
+
+.tacometro-pro text {
+  font-family: 'Digital-7', monospace, 'Montserrat', Arial, sans-serif;
+}
