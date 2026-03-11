@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import './Tacometro.css';
 
 const CX = 250, CY = 250;
@@ -24,7 +24,54 @@ function arcPath(r, a1, a2) {
 }
 
 function Tacometro({ rpm = 0, maxRpm = 8000 }) {
-  const angle = MIN_ANGLE + (Math.min(rpm, maxRpm) / maxRpm) * SWEEP;
+  const targetAngle = MIN_ANGLE + (Math.min(rpm, maxRpm) / maxRpm) * SWEEP;
+  const currentAngle = useRef(targetAngle);
+  const [angle, setAngle] = useState(targetAngle);
+  const rafRef = useRef(null);
+
+  // --- Tiritón: loop independiente, no toca la animación principal ---
+  const [vib, setVib] = useState(0);
+  const vibT = useRef(0);
+  const vibRaf = useRef(null);
+  useEffect(() => {
+    const loop = () => {
+      vibT.current += 0.45;
+      // Empieza a temblar a partir del 50% de la escala (4000 rpm)
+      const ratio = Math.max(0, (rpm - maxRpm * 0.50) / (maxRpm * 0.50));
+      const amp = ratio * 0.9; // máx ±0.9° de tiritón
+      setVib(Math.sin(vibT.current * 2.1) * amp * 0.5 + (Math.random() - 0.5) * amp);
+      vibRaf.current = requestAnimationFrame(loop);
+    };
+    vibRaf.current = requestAnimationFrame(loop);
+    return () => cancelAnimationFrame(vibRaf.current);
+  }, [rpm, maxRpm]);
+  // -------------------------------------------------------------------
+
+  useEffect(() => {
+    if (rafRef.current) cancelAnimationFrame(rafRef.current);
+    const animate = () => {
+      const diff = targetAngle - currentAngle.current;
+      if (Math.abs(diff) < 0.05) {
+        currentAngle.current = targetAngle;
+        setAngle(targetAngle);
+        return;
+      }
+      // Máximo 1 unidad de escala por frame → sin saltos visibles
+      const degPerUnit = SWEEP / maxRpm;  // grados que equivalen a 1 rpm
+      let step = diff * 0.35;
+      if (step >  degPerUnit) step =  degPerUnit;
+      if (step < -degPerUnit) step = -degPerUnit;
+      currentAngle.current += step;
+      setAngle(currentAngle.current);
+      rafRef.current = requestAnimationFrame(animate);
+    };
+    rafRef.current = requestAnimationFrame(animate);
+    return () => cancelAnimationFrame(rafRef.current);
+  }, [targetAngle]);
+
+  // Valor mostrado derivado del ángulo actual (sincronizado con la aguja)
+  const displayRpm = Math.round(((angle - MIN_ANGLE) / SWEEP) * maxRpm);
+
   const labels = [0, 1, 2, 3, 4, 5, 6, 7, 8];
 
   const ticks = [];
@@ -83,7 +130,7 @@ function Tacometro({ rpm = 0, maxRpm = 8000 }) {
           );
         })}
         {/* Aguja */}
-        <g style={{ transform: `rotate(${angle}deg)`, transformOrigin: `${CX}px ${CY}px`, transition: 'transform 0.3s cubic-bezier(.4,2,.6,1)' }}>
+        <g style={{ transform: `rotate(${angle + vib}deg)`, transformOrigin: `${CX}px ${CY}px` }}>
           <line x1={CX} y1={CY + 35} x2={CX} y2={CY - 190}
             stroke="#ff1744" strokeWidth="4" strokeLinecap="round" />
         </g>
@@ -93,7 +140,7 @@ function Tacometro({ rpm = 0, maxRpm = 8000 }) {
         {/* Etiqueta */}
         <text x={CX} y={CY + 68} textAnchor="middle" fontSize="38" fill="#00e676"
           fontFamily="monospace" letterSpacing="2"
-          style={{ filter: 'drop-shadow(0 0 8px #00e676)' }}>{rpm}</text>
+          style={{ filter: 'drop-shadow(0 0 8px #00e676)' }}>{displayRpm}</text>
         <text x={CX} y={CY + 98} textAnchor="middle" fontSize="16" fill="rgba(255,255,255,0.55)"
           fontFamily="'Montserrat', Arial, sans-serif" letterSpacing="5">RPM</text>
       </svg>

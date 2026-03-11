@@ -1,4 +1,4 @@
-import React from "react";
+import React, { useEffect, useRef, useState } from "react";
 import "./Velocimetro.css";
 
 const CX = 250;
@@ -35,9 +35,54 @@ function arcPath(r, a1, a2) {
 
 function Velocimetro({ velocidad = 0, maxVel = 240 }) {
 
-  const angle =
-    MIN_ANGLE +
-    (Math.min(velocidad, maxVel) / maxVel) * SWEEP;
+  const targetAngle = MIN_ANGLE + (Math.min(velocidad, maxVel) / maxVel) * SWEEP;
+  const currentAngle = useRef(targetAngle);
+  const [angle, setAngle] = useState(targetAngle);
+  const rafRef = useRef(null);
+
+  // --- Tiritón: loop independiente, no toca la animación principal ---
+  const [vib, setVib] = useState(0);
+  const vibT = useRef(0);
+  const vibRaf = useRef(null);
+  useEffect(() => {
+    const loop = () => {
+      vibT.current += 0.45;
+      // Empieza a temblar a partir del 55% de la escala
+      const ratio = Math.max(0, (velocidad - maxVel * 0.55) / (maxVel * 0.45));
+      const amp = ratio * 0.9; // máx ±0.9° de tiritón
+      setVib(Math.sin(vibT.current * 2.1) * amp * 0.5 + (Math.random() - 0.5) * amp);
+      vibRaf.current = requestAnimationFrame(loop);
+    };
+    vibRaf.current = requestAnimationFrame(loop);
+    return () => cancelAnimationFrame(vibRaf.current);
+  }, [velocidad, maxVel]);
+  // -------------------------------------------------------------------
+
+  useEffect(() => {
+    if (rafRef.current) cancelAnimationFrame(rafRef.current);
+    const animate = () => {
+      const diff = targetAngle - currentAngle.current;
+      if (Math.abs(diff) < 0.05) {
+        currentAngle.current = targetAngle;
+        setAngle(targetAngle);
+        return;
+      }
+      // Tope pequeño → la aguja tarda ~15 frames por km/h (igual de fluido que el tacómetro)
+      // degPerKm = 1.125° → tope = 1.125/15 = 0.075° por frame
+      const MAX_STEP = (SWEEP / maxVel) * 0.07;
+      let step = diff * 0.35;
+      if (step >  MAX_STEP) step =  MAX_STEP;
+      if (step < -MAX_STEP) step = -MAX_STEP;
+      currentAngle.current += step;
+      setAngle(currentAngle.current);
+      rafRef.current = requestAnimationFrame(animate);
+    };
+    rafRef.current = requestAnimationFrame(animate);
+    return () => cancelAnimationFrame(rafRef.current);
+  }, [targetAngle]);
+
+  // Valor mostrado derivado del ángulo actual (sincronizado con la aguja)
+  const displayVel = Math.round(((angle - MIN_ANGLE) / SWEEP) * maxVel);
 
   const labels = [0,30,60,90,120,150,180,210,240];
 
@@ -154,9 +199,8 @@ function Velocimetro({ velocidad = 0, maxVel = 240 }) {
 
         <g
           style={{
-            transform:`rotate(${angle}deg)`,
-            transformOrigin:`${CX}px ${CY}px`,
-            transition:"transform 0.3s"
+            transform:`rotate(${angle + vib}deg)`,
+            transformOrigin:`${CX}px ${CY}px`
           }}
         >
 
@@ -183,7 +227,7 @@ function Velocimetro({ velocidad = 0, maxVel = 240 }) {
           fill="#2196f3"
           fontFamily="monospace"
         >
-          {velocidad}
+          {displayVel}
         </text>
 
         <text

@@ -1,49 +1,74 @@
 import React, { useEffect, useState } from 'react';
-import { getDatosObd2, toggleMotor } from './services/obd2Service';
+import { getDatosObd2, toggleMotor, escanearCodigos, borrarCodigos } from './services/obd2Service';
 import Tacometro from './Tacometro';
 import Velocimetro from './Velocimetro';
 import './duoHome.css';
 
 function Home() {
   const [datos, setDatos] = useState({});
-  const [motor, setMotor] = useState(false); // Apagado por defecto
+  const [motor, setMotor] = useState(false);
   const [loading, setLoading] = useState(false);
+  const [checkEngine, setCheckEngine] = useState(null); // null = sin escanear
+  const [escaneando, setEscaneando] = useState(false);
+  const [borrando, setBorrando] = useState(false);
 
   useEffect(() => {
+    let activo = true;
+    let timeoutId = null;
+
     const fetchDatos = async () => {
-      const data = await getDatosObd2();
-      setDatos(data);
-      console.log('Valor motor recibido:', data.motor);
-      if (data.motor !== undefined) setMotor(data.motor === 'Encendido');
+      try {
+        const data = await getDatosObd2();
+        if (!activo) return;
+        setDatos(data);
+        if (data.motor !== undefined) setMotor(data.motor === 'Encendido');
+      } catch (_) {
+        // silencia errores de red puntuales
+      } finally {
+        // Solo programa la siguiente petición DESPUÉS de que la anterior terminó
+        if (activo) timeoutId = setTimeout(fetchDatos, 500);
+      }
     };
 
     fetchDatos();
-    const interval = setInterval(fetchDatos, 1000);
-    return () => clearInterval(interval);
+    return () => { activo = false; clearTimeout(timeoutId); };
   }, []);
 
   const handleToggleMotor = async () => {
     setLoading(true);
-
     const res = await toggleMotor();
     if (res.motor !== undefined) setMotor(res.motor === 'Encendido');
-
     const data = await getDatosObd2();
     setDatos(data);
     if (data.motor !== undefined) setMotor(data.motor === 'Encendido');
-
     setLoading(false);
+  };
+
+  const handleEscanear = async () => {
+    setEscaneando(true);
+    const res = await escanearCodigos();
+    if (!res.error) setCheckEngine(res);
+    setEscaneando(false);
+  };
+
+  const handleBorrar = async () => {
+    setBorrando(true);
+    const res = await borrarCodigos();
+    if (!res.error) setCheckEngine(res);
+    setBorrando(false);
   };
 
   return (
     <>
       {datos.vehiculo && getLogoPorMarca(datos.vehiculo.marca) && (
-        <img
-          src={getLogoPorMarca(datos.vehiculo.marca)}
-          alt={datos.vehiculo.marca}
-          className="duo-corner-logo"
-          onError={e => { e.target.style.display = 'none'; }}
-        />
+        <div className="duo-corner-logo-wrap">
+          <img
+            src={getLogoPorMarca(datos.vehiculo.marca)}
+            alt={datos.vehiculo.marca}
+            className="duo-corner-logo"
+            onError={e => { e.target.parentElement.style.display = 'none'; }}
+          />
+        </div>
       )}
       <div className="duo-bg">
       <h1 className="duo-title">Simulador OBD-II Engine</h1>
@@ -116,7 +141,17 @@ function Home() {
               <div className="duo-stat-card">
                 <span className="duo-stat-icon">⚠️</span>
                 <span className="duo-stat-label">Check Engine</span>
-                <span className="duo-stat-value">{datos["0101"].valor}</span>
+                <span className="duo-stat-value" style={{
+                  color: checkEngine === null ? '#aaa'
+                       : checkEngine.mil ? '#ff1744'
+                       : '#00e676'
+                }}>
+                  {checkEngine === null
+                    ? 'Sin escanear'
+                    : checkEngine.mil
+                      ? `ENCENDIDO (${checkEngine.codigos.length})`
+                      : 'APAGADO'}
+                </span>
               </div>
             )}
             {datos["0142"] && (
@@ -127,6 +162,60 @@ function Home() {
                 <span className="duo-stat-badge" style={{ color: colorBateria(datos["0142"].valor) }}>{estadoBateria(datos["0142"].valor)}</span>
               </div>
             )}
+          </div>
+
+          {/* ===== PANEL CHECK ENGINE ===== */}
+          <div className="ce-panel">
+            <div className="ce-header">
+              <svg
+                className={`ce-light ${checkEngine === null ? 'ce-unknown' : checkEngine.mil ? 'ce-on' : 'ce-ok'}`}
+                viewBox="0 0 40 28" fill="none" xmlns="http://www.w3.org/2000/svg"
+              >
+                <path d="M13 4 L13 9 L4 9 L4 21 L36 21 L36 9 L27 9 L27 4 Z"
+                  stroke="currentColor" strokeWidth="2.2" strokeLinejoin="round" strokeLinecap="round"/>
+                <line x1="1" y1="13" x2="4" y2="13" stroke="currentColor" strokeWidth="2" strokeLinecap="round"/>
+                <line x1="1" y1="17" x2="4" y2="17" stroke="currentColor" strokeWidth="2" strokeLinecap="round"/>
+                <line x1="36" y1="13" x2="39" y2="13" stroke="currentColor" strokeWidth="2" strokeLinecap="round"/>
+                <line x1="36" y1="17" x2="39" y2="17" stroke="currentColor" strokeWidth="2" strokeLinecap="round"/>
+                <circle cx="20" cy="15" r="3" fill="currentColor"/>
+              </svg>
+              <div className="ce-title-group">
+                <span className="ce-title">Check Engine</span>
+                <span className={`ce-badge ${
+                  checkEngine === null ? 'ce-badge-unknown'
+                  : checkEngine.mil ? 'ce-badge-on'
+                  : 'ce-badge-ok'
+                }`}>
+                  {checkEngine === null
+                    ? 'Sin escanear'
+                    : checkEngine.mil
+                      ? `${checkEngine.codigos.length} código${checkEngine.codigos.length !== 1 ? 's' : ''} encontrado${checkEngine.codigos.length !== 1 ? 's' : ''}`
+                      : 'Sin fallas detectadas'}
+                </span>
+              </div>
+            </div>
+
+            {checkEngine && checkEngine.codigos.length > 0 && (
+              <div className="ce-codes-list">
+                {checkEngine.codigos.map(c => (
+                  <div key={c.code} className="ce-code-item">
+                    <span className="ce-code-id">{c.code}</span>
+                    <span className="ce-code-desc">{c.desc}</span>
+                  </div>
+                ))}
+              </div>
+            )}
+
+            <div className="ce-actions">
+              <button className="ce-btn ce-btn-scan" onClick={handleEscanear} disabled={escaneando || borrando}>
+                {escaneando ? 'Escaneando...' : 'Escanear'}
+              </button>
+              {checkEngine && checkEngine.mil && (
+                <button className="ce-btn ce-btn-clear" onClick={handleBorrar} disabled={escaneando || borrando}>
+                  {borrando ? 'Borrando...' : 'Borrar Códigos'}
+                </button>
+              )}
+            </div>
           </div>
         </>
       )}
@@ -146,6 +235,7 @@ function getLogoPorMarca(marca) {
     'Volkswagen':  'volkswagen',
     'BMW':         'bmw',
     'Mercedes':    'mercedes-benz',
+    'Mercedes-Benz': 'mercedes-benz',
     'Audi':        'audi',
     'Nissan':      'nissan',
     'Hyundai':     'hyundai',
@@ -173,6 +263,10 @@ function getLogoPorMarca(marca) {
     'Alfa Romeo':  'alfa-romeo',
     'Seat':        'seat',
     'Skoda':       'skoda',
+    'Chery':       'chery',
+    'Leapmotor':   'leapmotor',
+    'BYD':         'byd',
+    'Geely':       'geely',
   };
   const slug = slugs[marca];
   if (!slug) return '';

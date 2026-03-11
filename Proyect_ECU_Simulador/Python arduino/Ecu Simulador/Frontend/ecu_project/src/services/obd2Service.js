@@ -35,3 +35,26 @@ export async function toggleMotor() {
     return { error: 'No se pudo cambiar estado del motor' };
   }
 }
+
+const CODIGOS_URL = 'http://localhost:5000/codigos';
+const BORRAR_URL  = 'http://localhost:5000/codigos/borrar';
+
+export async function escanearCodigos() {
+  try {
+    const response = await fetch(CODIGOS_URL);
+    if (!response.ok) throw new Error('Error al escanear');
+    return await response.json();
+  } catch (error) {
+    return { error: 'No se pudo escanear' };
+  }
+}
+
+export async function borrarCodigos() {
+  try {
+    const response = await fetch(BORRAR_URL, { method: 'POST' });
+    if (!response.ok) throw new Error('Error al borrar');
+    return await response.json();
+  } catch (error) {
+    return { error: 'No se pudo borrar códigos' };
+  }
+}

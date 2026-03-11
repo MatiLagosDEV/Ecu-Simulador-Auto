@@ -4,7 +4,7 @@ from flask import Flask, jsonify, request
 from flask_cors import CORS
 import requests
 from vininfo import Vin
-from conexion_ecu import ecu, enviar_pid
+from conexion_ecu import ecu, enviar_pid, leer_dtc, borrar_codigos as _borrar_arduino
 from pids_motor import pids_motor
 from pids_bateria import pids_bateria
 from decodificadores import decodificar_consumo_combustible
@@ -35,6 +35,33 @@ def toggle_motor():
     except Exception as e:
         print(f"Error al enviar comando a ECU: {e}")
         # No cambiar el estado si hay error
+
+# --- Override de marcas chinas modernas no reconocidas por vininfo ---
+# Clave: prefijo del VIN (WMI de 3 chars o más específico), Valor: marca correcta
+VIN_MARCA_OVERRIDE = {
+    # Leapmotor (零跑汽车)
+    'LSVFA': 'Leapmotor',
+    'LS5AA': 'Leapmotor',
+    'LS5AB': 'Leapmotor',
+    'LFPAB': 'Leapmotor',
+    # BYD (比亚迪)
+    'LBW':   'BYD',
+    'LNBSC': 'BYD',
+    'LFP':   'BYD',
+    'LGXCE': 'BYD',
+    # Geely (吉利)
+    'LJC':   'Geely',
+    'LGXC':  'Geely',
+    # Chery (奇瑞)
+    'LVV':   'Chery',
+}
+
+def _detectar_marca_override(vin):
+    """Busca coincidencia de prefijo VIN en el override, de más específico a menos."""
+    for prefijo in sorted(VIN_MARCA_OVERRIDE, key=len, reverse=True):
+        if vin.upper().startswith(prefijo.upper()):
+            return VIN_MARCA_OVERRIDE[prefijo]
+    return None
 
 # --- Función para leer VIN ---
 def leer_vin():
@@ -71,9 +98,12 @@ def leer_vin():
         except:
             modelo = "Desconocido"
 
+        # Usar override de marca si existe, si no usar vininfo
+        marca = _detectar_marca_override(vin) or vin_obj.manufacturer
+
         return {
             "vin": vin,
-            "marca": vin_obj.manufacturer,
+            "marca": marca,
             "pais": vin_obj.country,
             "año": año,
             "modelo": modelo
@@ -169,6 +199,27 @@ def motor_toggle():
     toggle_motor()
     estado = 'Encendido' if get_motor_state() else 'Apagado'
     return jsonify({'motor': estado})
+
+@app.route('/codigos', methods=['GET'])
+def get_codigos():
+    from pids_codigos import nombre_codigos
+    try:
+        lista = leer_dtc()  # Envía "03" al Arduino, devuelve lista de "P0300" etc.
+    except Exception as e:
+        return jsonify({'error': str(e), 'mil': False, 'codigos': []})
+    codigos = [
+        {'code': c, 'desc': nombre_codigos.get(c, 'Código desconocido')}
+        for c in lista
+    ]
+    return jsonify({'mil': len(codigos) > 0, 'codigos': codigos})
+
+@app.route('/codigos/borrar', methods=['POST'])
+def borrar_codigos_endpoint():
+    try:
+        _borrar_arduino()  # Envía "04" al Arduino
+    except Exception as e:
+        return jsonify({'error': str(e), 'ok': False})
+    return jsonify({'ok': True, 'mil': False, 'codigos': []})
 
 if __name__ == '__main__':
     app.run(host='0.0.0.0', port=5000, threaded=False, processes=1)
