@@ -1,0 +1,17 @@
+# Node / frontend
+frontend/ecu_project/node_modules/
+frontend/ecu_project/dist/
+frontend/ecu_project/.vite/
+
+# Python / backend
+backend/OBD2-Simulador/__pycache__/
+backend/OBD2-Simulador/*.pyc
+backend/OBD2-Simulador/build/
+backend/OBD2-Simulador/dist/
+backend/OBD2-Simulador/*.spec
+
+# OS/editor
+.DS_Store
+Thumbs.db
+.vscode/
+.env
