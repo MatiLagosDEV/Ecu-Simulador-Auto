@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState } from 'react';
 import './SensoresAvanzadosPage.css';
 
 /* ─────────────────────────────────────────────────
@@ -20,12 +20,13 @@ function parseVal(str) {
 
 /* ─────────────────────────────────────────────────
    Definición de sensores a mostrar
-   pid     → clave en `datos` ó null si viene de consumo_inteligente
-   label   → nombre legible
-   icon    → emoji
-   unit    → unidad (solo informativo)
-   desc    → descripción breve del sensor
-   badge   → función(valor_num) → {text, color}  (opcional)
+   pid       → clave en `datos` ó null si viene de consumo_inteligente
+   label     → nombre legible
+   icon      → emoji
+   unit      → unidad (solo informativo)
+   categoria → grupo lógico para ordenar en la UI
+   desc      → descripción breve del sensor
+   badge     → función(valor_num) → {text, color}  (opcional)
 ───────────────────────────────────────────────── */
 const SENSORES = [
   {
@@ -33,6 +34,7 @@ const SENSORES = [
     label: 'Flujo de aire (MAF)',
     icon: '💨',
     unit: 'g/s',
+    categoria: 'Mezcla y Combustible',
     desc: 'Masa de aire que entra al motor',
     badge: (v) => ({
       text: v === null ? '—' : v < 5 ? 'Ralentí' : v < 20 ? 'Normal' : 'Alta carga',
@@ -44,6 +46,7 @@ const SENSORES = [
     label: 'Presión colector (MAP)',
     icon: '🌬️',
     unit: 'kPa',
+    categoria: 'Mezcla y Combustible',
     desc: 'Presión del múltiple de admisión',
     badge: (v) => ({
       text: v === null ? '—' : v < 35 ? 'Vacío alto' : v < 60 ? 'Ralentí' : v < 100 ? 'Normal' : 'Plena carga',
@@ -55,6 +58,7 @@ const SENSORES = [
     label: 'Posición acelerador (TPS)',
     icon: '🦶',
     unit: '%',
+    categoria: 'Rendimiento del Motor',
     desc: 'Apertura de la mariposa de aceleración',
     badge: (v) => ({
       text: v === null ? '—' : v < 5 ? 'Cerrado' : v < 50 ? 'Parcial' : v < 90 ? 'Alto' : 'Pleno gas',
@@ -66,6 +70,7 @@ const SENSORES = [
     label: 'Carga calculada motor',
     icon: '⚙️',
     unit: '%',
+    categoria: 'Rendimiento del Motor',
     desc: 'Porcentaje de la carga actual del motor',
     badge: (v) => ({
       text: v === null ? '—' : v < 30 ? 'Baja' : v < 70 ? 'Media' : v < 90 ? 'Alta' : 'Máxima',
@@ -77,6 +82,7 @@ const SENSORES = [
     label: 'Temperatura aire entrada (IAT)',
     icon: '🌡️',
     unit: '°C',
+    categoria: 'Salud y Temperaturas',
     desc: 'Temperatura del aire en el múltiple',
     badge: (v) => ({
       text: v === null ? '—' : v < 0 ? 'Bajo cero' : v < 40 ? 'Normal' : v < 60 ? 'Elevada' : 'Alta',
@@ -88,6 +94,7 @@ const SENSORES = [
     label: 'Avance de encendido',
     icon: '⚡',
     unit: '°',
+    categoria: 'Rendimiento del Motor',
     desc: 'Ángulo de avance de la chispa respecto al PMS',
     badge: (v) => ({
       text: v === null ? '—' : v < 0 ? 'Retardo' : v < 15 ? 'Normal' : v < 30 ? 'Avanzado' : 'Máximo',
@@ -99,6 +106,7 @@ const SENSORES = [
     label: 'Corrección combustible corto',
     icon: '🔩',
     unit: '%',
+    categoria: 'Mezcla y Combustible',
     desc: 'Ajuste a corto plazo de la mezcla aire/combustible',
     badge: (v) => ({
       text: v === null ? '—' : Math.abs(v) <= 5 ? 'En punto' : Math.abs(v) <= 15 ? 'Ajustando' : 'Fuera de rango',
@@ -110,6 +118,7 @@ const SENSORES = [
     label: 'Corrección combustible largo',
     icon: '🔧',
     unit: '%',
+    categoria: 'Mezcla y Combustible',
     desc: 'Ajuste a largo plazo de la mezcla aire/combustible',
     badge: (v) => ({
       text: v === null ? '—' : Math.abs(v) <= 5 ? 'En punto' : Math.abs(v) <= 15 ? 'Ajustando' : 'Fuera de rango',
@@ -121,6 +130,7 @@ const SENSORES = [
     label: 'Presión combustible',
     icon: '🛢️',
     unit: 'kPa',
+    categoria: 'Mezcla y Combustible',
     desc: 'Presión en la línea de combustible (relativa)',
     badge: (v) => ({
       text: v === null ? '—' : v < 200 ? 'Baja' : v < 400 ? 'Normal' : 'Alta',
@@ -132,6 +142,7 @@ const SENSORES = [
     label: 'Presión riel combustible',
     icon: '⛽',
     unit: 'kPa',
+    categoria: 'Mezcla y Combustible',
     desc: 'Presión del riel de inyectores (combustible directo/GDI)',
     badge: (v) => ({
       text: v === null ? '—' : v < 3000 ? 'Baja' : v < 15000 ? 'Normal' : 'Alta',
@@ -143,6 +154,7 @@ const SENSORES = [
     label: 'Sensor O₂ banco 1 S1',
     icon: '🔬',
     unit: 'V',
+    categoria: 'Mezcla y Combustible',
     desc: 'Tensión del sensor de oxígeno (sonda lambda)',
     badge: (v) => ({
       text: v === null ? '—' : v < 0.1 ? 'Lean/Pobre' : v < 0.45 ? 'Zona lean' : v < 0.55 ? 'Estequiométrico' : v < 0.9 ? 'Zona rich' : 'Rich/Rico',
@@ -154,11 +166,36 @@ const SENSORES = [
     label: 'Distancia con MIL encendido',
     icon: '📏',
     unit: 'km',
+    categoria: 'Diagnóstico MIL',
     desc: 'Kilómetros recorridos desde que se encendió el Check Engine',
     badge: (v) => ({
       text: v === null ? '—' : v === 0 ? 'Sin fallas recientes' : v < 50 ? 'Reciente' : v < 200 ? 'Varios días' : 'Prolongado',
       color: v === null ? '#90a4ae' : v === 0 ? '#66bb6a' : v < 50 ? '#ffa726' : '#ef5350',
     }),
+  },
+];
+
+// Categorías lógicas de sensores (vista principal tipo "cuadrados")
+const CATEGORIAS = [
+  {
+    id: 'Rendimiento del Motor',
+    icon: '🚗',
+    desc: 'Carga del motor, TPS y avance de encendido.',
+  },
+  {
+    id: 'Salud y Temperaturas',
+    icon: '🌡️',
+    desc: 'Temperaturas de admisión y estado general.',
+  },
+  {
+    id: 'Mezcla y Combustible',
+    icon: '⛽',
+    desc: 'Mezcla aire/combustible, trims y presiones.',
+  },
+  {
+    id: 'Diagnóstico MIL',
+    icon: '⚠️',
+    desc: 'Parámetros ligados al encendido del Check Engine.',
   },
 ];
 
@@ -195,14 +232,30 @@ function SensorCard({ sensor, datos }) {
    Componente principal
 ───────────────────────────────────────────────── */
 export default function SensoresAvanzadosPage({ datos, onVolver }) {
+  const [categoriaActiva, setCategoriaActiva] = useState(CATEGORIAS[0].id);
+  const [vista, setVista] = useState('categorias'); // 'categorias' | 'detalle'
   const disponibles = SENSORES.filter(s => datos[s.pid]?.valor != null);
   const noDisponibles = SENSORES.filter(s => datos[s.pid]?.valor == null);
+
+  // Categorías disponibles según los sensores definidos
+  const categoriasDisponibles = CATEGORIAS.filter(cat =>
+    SENSORES.some(s => s.categoria === cat.id)
+  );
 
   return (
     <div className="sa-page-bg">
       {/* Top bar */}
       <div className="sa-page-topbar">
-        <button className="sa-page-back" onClick={onVolver}>
+        <button
+          className="sa-page-back"
+          onClick={() => {
+            if (vista === 'detalle') {
+              setVista('categorias');
+            } else {
+              onVolver();
+            }
+          }}
+        >
           ← Volver
         </button>
         <div className="sa-page-topbar-center">
@@ -228,34 +281,51 @@ export default function SensoresAvanzadosPage({ datos, onVolver }) {
         </div>
       </div>
 
-      {/* Grid de sensores */}
       <div className="sa-page-body">
         {disponibles.length === 0 && noDisponibles.length === 0 ? (
           <p className="sa-empty">Sin datos de sensores. Asegúrate de que el motor está en marcha.</p>
         ) : (
           <>
-            {disponibles.length > 0 && (
+            {vista === 'categorias' ? (
+              <>
+                <h2 className="sa-section-title">Selecciona una categoría</h2>
+                <div className="sa-cat-grid">
+                  {categoriasDisponibles.map(cat => {
+                    const totalCat = SENSORES.filter(s => s.categoria === cat.id).length;
+                    const activosCat = SENSORES.filter(
+                      s => s.categoria === cat.id && datos[s.pid]?.valor != null
+                    ).length;
+                    return (
+                      <button
+                        key={cat.id}
+                        className="sa-cat-card"
+                        onClick={() => {
+                          setCategoriaActiva(cat.id);
+                          setVista('detalle');
+                        }}
+                      >
+                        <div className="sa-cat-header">
+                          <span className="sa-cat-icon">{cat.icon}</span>
+                          <span className="sa-cat-title">{cat.id}</span>
+                        </div>
+                        <div className="sa-cat-count">
+                          {activosCat}/{totalCat} sensores activos
+                        </div>
+                        <div className="sa-cat-desc">{cat.desc}</div>
+                      </button>
+                    );
+                  })}
+                </div>
+              </>
+            ) : (
               <section className="sa-section">
-                <h2 className="sa-section-title">Sensores activos</h2>
-                <div className="sa-grid">
-                  {disponibles.map(s => (
-                    <SensorCard key={s.pid} sensor={s} datos={datos} />
-                  ))}
-                </div>
-              </section>
-            )}
-
-            {noDisponibles.length > 0 && (
-              <section className="sa-section sa-section-nd">
-                <h2 className="sa-section-title sa-section-title-nd">
-                  No disponibles en este vehículo
-                </h2>
-                <div className="sa-grid">
-                  {noDisponibles.map(s => (
-                    <SensorCard key={s.pid} sensor={s} datos={datos} />
-                  ))}
-                </div>
-              </section>
+                  <h2 className="sa-section-title">{categoriaActiva}</h2>
+                  <div className="sa-grid">
+                    {SENSORES.filter(s => s.categoria === categoriaActiva).map(s => (
+                      <SensorCard key={s.pid} sensor={s} datos={datos} />
+                    ))}
+                  </div>
+                </section>
             )}
           </>
         )}

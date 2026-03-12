@@ -120,6 +120,66 @@
 .sa-section-nd { opacity: 0.5; }
 .sa-section-title-nd { color: #546e7a; }
 
+/* ── Cuadrados de categorías (vista principal) ── */
+.sa-cat-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(230px, 1fr));
+  gap: 1rem;
+  margin-top: 0.8rem;
+}
+
+.sa-cat-card {
+  background: rgba(255, 255, 255, 0.05);
+  border: 1px solid rgba(144, 202, 249, 0.25);
+  border-radius: 16px;
+  padding: 1rem 1.1rem;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 0.4rem;
+  cursor: pointer;
+  text-align: left;
+  color: inherit;
+  outline: none;
+  transition: background 0.2s, border-color 0.2s, transform 0.15s, box-shadow 0.15s;
+}
+
+.sa-cat-card:hover {
+  background: rgba(144, 202, 249, 0.1);
+  border-color: rgba(144, 202, 249, 0.6);
+  box-shadow: 0 6px 22px rgba(0, 0, 0, 0.6);
+  transform: translateY(-2px);
+}
+
+.sa-cat-header {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+}
+
+.sa-cat-icon {
+  font-size: 1.4rem;
+}
+
+.sa-cat-title {
+  font-size: 0.86rem;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: #e3f2fd;
+}
+
+.sa-cat-count {
+  font-size: 0.75rem;
+  font-weight: 600;
+  color: #90caf9;
+}
+
+.sa-cat-desc {
+  font-size: 0.7rem;
+  color: #78909c;
+}
+
 /* ── Grid de tarjetas ───────────────────────────── */
 .sa-grid {
   display: grid;

@@ -712,7 +712,7 @@ function Home() {
               <div className="duo-stat-card">
                 <span className="duo-stat-icon">🌡️</span>
                 <span className="duo-stat-label">Temperatura</span>
-                <span className="duo-stat-value">{datos["0105"].valor}</span>
+                <span className="duo-stat-value">{soloTemperatura(datos["0105"].valor)}</span>
                 <span className="duo-stat-badge" style={{ color: colorTemperatura(datos["0105"].valor) }}>{estadoTemperatura(datos["0105"].valor)}</span>
               </div>
             )}
@@ -738,7 +738,7 @@ function Home() {
               <div className="duo-stat-card">
                 <span className="duo-stat-icon">🔋</span>
                 <span className="duo-stat-label">Batería</span>
-                <span className="duo-stat-value">{decodificarVoltaje(datos["0142"].valor)}</span>
+                <span className="duo-stat-value">{datos["0142"].valor}</span>
                 <span className="duo-stat-badge" style={{ color: colorBateria(datos["0142"].valor) }}>{estadoBateria(datos["0142"].valor)}</span>
               </div>
             )}
@@ -825,27 +825,6 @@ function decodificarRpm(valor) {
 }
 
 
-// Decodifica voltaje batería
-function decodificarVoltaje(valor) {
-  const datos = valor.split(' ');
-
-  let byte = null;
-
-  if (datos.length >= 3) {
-    byte = parseInt(datos[2], 16);
-  } else if (datos.length >= 1) {
-    byte = parseInt(datos[0], 16);
-  }
-
-  if (!isNaN(byte) && byte !== null) {
-    const voltaje = (byte * 0.01).toFixed(2);
-    return voltaje + ' V';
-  }
-
-  return valor;
-}
-
-
 // Devuelve estado de temperatura
 function estadoTemperatura(valor) {
   if (typeof valor !== 'string') return "";
@@ -875,31 +854,34 @@ function colorTemperatura(valor) {
   return "red";
 }
 
-// Estado de batería según voltaje
+// Extrae solo la parte "XX°C" sin el estado entre paréntesis
+function soloTemperatura(valor) {
+  if (typeof valor !== 'string') return valor;
+  const match = valor.match(/-?\d+\s*°C/);
+  return match ? match[0] : valor;
+}
+
+// Estado de batería según voltaje (valor ya viene como "14.1 V")
 function estadoBateria(valor) {
-  const datos = valor.split(' ');
-  let byte = null;
-  if (datos.length >= 3) byte = parseInt(datos[2], 16);
-  else if (datos.length >= 1) byte = parseInt(datos[0], 16);
-  if (isNaN(byte) || byte === null) return "";
-  const v = byte * 0.01;
-  if (v < 11.8) return "Muerta";
-  if (v < 12.2) return "Desgastada";
-  if (v < 12.5) return "Normal";
+  if (typeof valor !== 'string') return "";
+  const m = valor.match(/([\d.]+)/);
+  if (!m) return "";
+  const v = parseFloat(m[1]);
+  if (v < 12.0) return "Muerta";        // muy baja
+  if (v < 12.2) return "Desgastada";    // algo descargada
+  if (v < 12.6) return "Normal";        // rango típico en contacto
   return "Buena";
 }
 
-// Color de batería según voltaje
+// Color de batería según voltaje (valor ya viene como "14.1 V")
 function colorBateria(valor) {
-  const datos = valor.split(' ');
-  let byte = null;
-  if (datos.length >= 3) byte = parseInt(datos[2], 16);
-  else if (datos.length >= 1) byte = parseInt(datos[0], 16);
-  if (isNaN(byte) || byte === null) return "#aaa";
-  const v = byte * 0.01;
-  if (v < 11.8) return "#ff1744";
-  if (v < 12.2) return "#ff9100";
-  if (v < 12.5) return "#fff176";
+  if (typeof valor !== 'string') return "#aaa";
+  const m = valor.match(/([\d.]+)/);
+  if (!m) return "#aaa";
+  const v = parseFloat(m[1]);
+  if (v < 12.0) return "#ff1744";   // rojo: muy baja
+  if (v < 12.2) return "#ff9100";   // naranja: desgastada
+  if (v < 12.6) return "#fff176";   // amarillo: normal en reposo
   return "#00e676";
 }
 
