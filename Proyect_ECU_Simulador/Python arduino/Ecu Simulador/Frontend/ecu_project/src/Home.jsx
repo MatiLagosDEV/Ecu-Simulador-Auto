@@ -1,5 +1,5 @@
 import React, { useEffect, useState, useRef } from 'react';
-import { getDatosObd2, escanearCodigos, borrarCodigos, getEstadoMotor } from './services/obd2Service';
+import { getDatosObd2, escanearCodigos, borrarCodigos, getEstadoMotor, escanearProtocolo } from './services/obd2Service';
 import Tacometro from './Tacometro';
 import Velocimetro from './Velocimetro';
 import CheckEnginePage from './CheckEnginePage';
@@ -7,13 +7,13 @@ import SensoresAvanzadosPage from './SensoresAvanzadosPage';
 import ConfirmBorrarModal from './ConfirmBorrarModal';
 import './duoHome.css';
 
-// Secuencia overlay primera conexión
+// Secuencia overlay primera conexión (el mensaje de protocolo se rellenará dinámico)
 const PASOS_CONTACTO = [
-  { pct: 0,   msg: 'Buscando protocolo de comunicación...' },
-  { pct: 20,  msg: 'Buscando protocolo de comunicación...' },
-  { pct: 40,  msg: 'Protocolo CAN Bus detectado (ISO 15765-4).' },
-  { pct: 70,  msg: 'Vinculando con ECU del motor...' },
-  { pct: 100, msg: '¡Conexión Exitosa!' },
+  { pct: 0,   key: 'buscando1' },
+  { pct: 20,  key: 'buscando2' },
+  { pct: 40,  key: 'protocolo' },
+  { pct: 70,  key: 'vinculando' },
+  { pct: 100, key: 'ok' },
 ];
 
 // Mensajes rotativos mientras el motor está en CONTACTO (arrancando)
@@ -99,6 +99,7 @@ function Home() {
   const [overlayPct, setOverlayPct] = useState(0);
   const [overlayMsg, setOverlayMsg] = useState('');
   const overlayConexionDoneRef = useRef(false);
+  const protocoloNombreRef = useRef('CAN Bus (ISO 15765-4)');
 
   // Overlay ciclo de arranque (ENCENDIDO → CONTACTO)
   const [overlayArranqueVisible, setOverlayArranqueVisible] = useState(false);
@@ -117,8 +118,17 @@ function Home() {
   const lanzarOverlayConexion = () => {
     overlayConexionDoneRef.current = false;
     setOverlayPct(0);
-    setOverlayMsg(PASOS_CONTACTO[0].msg);
+    setOverlayMsg('Buscando protocolo de comunicación...');
     setOverlayConexionVisible(true);
+
+    // Lanzar detección real de protocolo en paralelo (solo una vez)
+    escanearProtocolo().then(res => {
+      if (!res || res.error) return;
+      if (res.nombre) {
+        protocoloNombreRef.current = res.nombre;
+      }
+    }).catch(() => {});
+
     let i = 0;
     const avanzar = () => {
       if (i >= PASOS_CONTACTO.length) {
@@ -130,7 +140,23 @@ function Home() {
       }
       const paso = PASOS_CONTACTO[i];
       setOverlayPct(paso.pct);
-      setOverlayMsg(paso.msg);
+      let msg = '';
+      switch (paso.key) {
+        case 'buscando1':
+        case 'buscando2':
+          msg = 'Buscando protocolo de comunicación...';
+          break;
+        case 'protocolo':
+          msg = `Protocolo ${protocoloNombreRef.current} detectado.`;
+          break;
+        case 'vinculando':
+          msg = 'Vinculando con ECU del motor...';
+          break;
+        case 'ok':
+        default:
+          msg = '¡Conexión Exitosa!';
+      }
+      setOverlayMsg(msg);
       i++;
       setTimeout(avanzar, paso.pct === 100 ? 0 : 700);
     };
@@ -398,7 +424,9 @@ function Home() {
         </div>
       )}
       <div className="duo-bg">
-      <h1 className="duo-title">Simulador OBD-II Engine</h1>
+      <h1 className="duo-title">
+        {tipoConexion === 'Simulador OBD-II (debug)' ? 'Simulador OBD-II Engine' : 'OBD-II Engine'}
+      </h1>
 
       <>
           {datos.vehiculo && (

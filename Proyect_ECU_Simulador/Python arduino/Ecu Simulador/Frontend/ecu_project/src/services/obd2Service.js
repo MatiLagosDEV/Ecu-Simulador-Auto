@@ -65,3 +65,23 @@ export async function borrarCodigos() {
     return { error: 'No se pudo borrar códigos' };
   }
 }
+
+export async function escanearProtocolo() {
+  try {
+    const response = await fetch(`${API_BASE}/protocolo/escanear`);
+    if (!response.ok) throw new Error('Error al escanear protocolo');
+    return await response.json();
+  } catch (error) {
+    return { error: 'No se pudo detectar protocolo' };
+  }
+}
+
+export async function getProtocoloActual() {
+  try {
+    const response = await fetch(`${API_BASE}/protocolo`);
+    if (!response.ok) throw new Error('Error al obtener protocolo');
+    return await response.json();
+  } catch (error) {
+    return { error: 'No se pudo obtener protocolo' };
+  }
+}
