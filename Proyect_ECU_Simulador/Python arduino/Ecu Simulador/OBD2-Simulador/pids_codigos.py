@@ -1,9 +1,16 @@
-nombre_codigos = {
-    "P0300": "Fallo aleatorio de encendido",
-    "P0301": "Fallo de encendido cilindro 1",
-    "P0302": "Fallo de encendido cilindro 2",
-    "P0171": "Mezcla pobre banco 1",
-    "P0172": "Mezcla rica banco 1",
-    "P0420": "Eficiencia baja del catalizador",
-    # Agrega más códigos según lo necesites
-}
+import json
+import os
+
+_BASE = os.path.dirname(os.path.abspath(__file__))
+_JSON = os.path.join(_BASE, 'fallas_es_opt.json')
+
+try:
+    with open(_JSON, 'r', encoding='utf-8') as _f:
+        _data = json.load(_f)
+    # codigos_db  → dict completo  {"P0001": {"d": "...", "r": "..."}}
+    codigos_db = _data
+    # nombre_codigos → solo descripción, compatible con main.py y conexion_ecu.py
+    nombre_codigos = {k: v['d'] for k, v in _data.items()}
+except Exception:
+    codigos_db = {}
+    nombre_codigos = {}

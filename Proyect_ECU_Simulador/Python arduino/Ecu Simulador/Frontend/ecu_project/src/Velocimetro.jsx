@@ -46,11 +46,14 @@ function Velocimetro({ velocidad = 0, maxVel = 240 }) {
   const vibRaf = useRef(null);
   useEffect(() => {
     const loop = () => {
-      vibT.current += 0.45;
-      // Empieza a temblar a partir del 55% de la escala
-      const ratio = Math.max(0, (velocidad - maxVel * 0.55) / (maxVel * 0.45));
-      const amp = ratio * 0.9; // máx ±0.9° de tiritón
-      setVib(Math.sin(vibT.current * 2.1) * amp * 0.5 + (Math.random() - 0.5) * amp);
+      vibT.current += 0.7;
+      // Empieza a temblar exactamente a partir de 120 km/h
+      const ratio = Math.max(0, (velocidad - 120) / (maxVel - 120));
+      const amp = ratio * 3.5; // máx ±3.5° de tiritón bien visible
+      setVib(
+        Math.sin(vibT.current * 3.8) * amp * 0.6
+        + (Math.random() - 0.5) * amp * 0.8
+      );
       vibRaf.current = requestAnimationFrame(loop);
     };
     vibRaf.current = requestAnimationFrame(loop);

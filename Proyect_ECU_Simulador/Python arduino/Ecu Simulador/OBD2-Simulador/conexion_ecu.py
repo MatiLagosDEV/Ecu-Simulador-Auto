@@ -1,59 +1,32 @@
 import serial
 import time
-import requests
-from vininfo import Vin
 from pids_codigos import nombre_codigos
 
 # Conexión con Arduino
 ecu = serial.Serial("COM3", 9600, timeout=1)
-time.sleep(2)
+time.sleep(2)  # Esperar a que el Arduino reinicie
 
-def leer_vin():
-    """Lee el VIN desde Arduino y decodifica marca, país, año aproximado y modelo vía NHTSA"""
-    ecu.write(b"0902\n")  # PID estándar para VIN
-    resp = ecu.readline().decode().strip()
-    print(f"Respuesta cruda VIN: '{resp}'")
-    # Limpiar respuesta y quedarnos con los 17 caracteres del VIN
-    parts = resp.split()
-    print(f"Partes de la respuesta: {parts}")
-    if len(parts) >= 3:
-        vin = "".join(parts[2:])[:17]
-    else:
-        vin = ""
-    print(f"VIN extraído: '{vin}'")
-    if vin:
-        try:
-            vin_obj = Vin(vin)
-            print(f"Marca detectada: {vin_obj.manufacturer}")
-            print(f"País de origen: {vin_obj.country}")
-            # Año aproximado según 10º carácter
-            año_caracter = vin[9].upper()
-            año_mapping = {
-                'A': 2010, 'B': 2011, 'C': 2012, 'D': 2013, 'E': 2014,
-                'F': 2015, 'G': 2016, 'H': 2017, 'J': 2018, 'K': 2019,
-                'L': 2020, 'M': 2021, 'N': 2022, 'P': 2023, 'R': 2024,
-                'S': 2025, 'T': 2026, 'V': 2027, 'W': 2028, 'X': 2029,
-                'Y': 2030, '1': 2001, '2': 2002, '3': 2003, '4': 2004,
-                '5': 2005, '6': 2006, '7': 2007, '8': 2008, '9': 2009
-            }
-            año = año_mapping.get(año_caracter, "Desconocido")
-            print(f"Año aproximado: {año}")
+# --- Inicialización del adaptador OBD-II ---
+# Sin este paso el Arduino está en estado 0 (OFF) y responde "NO DATA" a todo.
+# Equivale a lo que hace cualquier escáner al enchufarse:
+try:
+    ecu.reset_input_buffer()
+    ecu.write(b'ATZ\n')      # Reset del chip
+    time.sleep(1.0)
+    ecu.reset_input_buffer()
+    for _cmd in [b'ATE0\n', b'ATL0\n', b'ATH1\n']:
+        ecu.write(_cmd)
+        time.sleep(0.1)
+        ecu.readline()       # Consumir "OK"
+    # Activar protocolo CAN 11/500 (protocolo 6) para pasar Arduino a CONTACTO
+    ecu.write(b'ATSP6\n')
+    time.sleep(1.5)          # Arduino demora 1 s con "SEARCHING..." antes del OK
+    ecu.reset_input_buffer() # Limpiar SEARCHING...OK del buffer
+    print("[ECU] Protocolo CAN activado. Arduino en estado CONTACTO.")
+except Exception as _e:
+    print(f"[ECU] Advertencia en inicialización: {_e}")
 
-            # Consultar modelo vía NHTSA
-            try:
-                url = f"https://vpic.nhtsa.dot.gov/api/vehicles/decodevin/{vin}?format=json"
-                resp_api = requests.get(url, timeout=5).json()
-                modelo = next((x["Value"] for x in resp_api["Results"] if x["Variable"]=="Model"), "Desconocido")
-                print(f"Modelo detectado: {modelo}")
-            except Exception as e:
-                print("No se pudo obtener el modelo desde NHTSA:", e)
-
-        except Exception as e:
-            print("No se pudo decodificar el VIN:", e)
-    else:
-        print("No se pudo obtener el VIN del vehículo.")
-
-# --- FUNCIONES OBD --- (igual que antes)
+# --- FUNCIONES OBD ---
 def enviar_pid(pid):
     ecu.write((pid+"\n").encode())
     resp = ecu.readline().decode().strip()
@@ -80,6 +53,16 @@ def leer_dtc():
             print(f"{codigo}: {desc}")
     return codigos
 
+def leer_pending_dtc():
+    """Mode 07 — códigos pendientes (detectados pero no confirmados aún)."""
+    ecu.write(b"07\n")
+    resp = ecu.readline().decode().strip()
+    if resp == "" or "NO DATA" in resp:
+        return []
+    b = resp.split()
+    codigos = [c for c in b[1:] if c.startswith("P") and len(c) == 5]
+    return codigos
+
 def borrar_codigos():
     ecu.write(b"04\n")
     resp = ecu.readline().decode().strip()
@@ -90,8 +73,3 @@ def borrar_codigo(codigo):
     ecu.write(comando.encode())
     resp = ecu.readline().decode().strip()
     return resp
-
-# --- EJEMPLO DE USO ---
-leer_vin()
-# dtc = leer_dtc()
-# borrar_codigos()
