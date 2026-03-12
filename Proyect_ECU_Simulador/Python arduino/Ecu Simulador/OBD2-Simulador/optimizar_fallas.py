@@ -1679,19 +1679,35 @@ def recomendar(codigo, desc=''):
 def main():
     with open('fallas_es.json', 'r', encoding='utf-8') as f:
         fallas = json.load(f)
-    fallas_opt = {}
+    # Separar por categoría: P, B, C, U
+    categorias = {'P': {}, 'B': {}, 'C': {}, 'U': {}}
     for cod, desc in fallas.items():
         desc_limpia = limpiar_descripcion(desc)
         rec = recomendar(cod, desc)
-        fallas_opt[cod] = {"d": desc_limpia, "r": rec}
-    with open('fallas_es_opt.json', 'w', encoding='utf-8') as f:
-        json.dump(fallas_opt, f, ensure_ascii=False, indent=2)
-    total = len(fallas_opt)
+        letra = cod[0].upper() if cod else 'P'
+        if letra not in categorias:
+            letra = 'P'
+        categorias[letra][cod] = {"d": desc_limpia, "r": rec}
+
+    archivos = {
+        'P': 'fallas_P.json',
+        'B': 'fallas_B.json',
+        'C': 'fallas_C.json',
+        'U': 'fallas_U.json',
+    }
+    total_global = 0
+    for letra, datos in categorias.items():
+        if datos:
+            with open(archivos[letra], 'w', encoding='utf-8') as f:
+                json.dump(datos, f, ensure_ascii=False, indent=2)
+            total_global += len(datos)
+            print(f"✅ Generado {archivos[letra]} ({len(datos)} códigos)")
+
+    fallas_opt = {k: v for d in categorias.values() for k, v in d.items()}
     especificos = sum(1 for c in fallas_opt if c in REC_ESPECIFICA)
-    print(f"✅ Generado fallas_es_opt.json")
-    print(f"   Total códigos   : {total}")
+    print(f"   Total códigos   : {total_global}")
     print(f"   Con rec. exacta : {especificos}")
-    print(f"   Con rec. patrón : {total - especificos}")
+    print(f"   Con rec. patrón : {total_global - especificos}")
 
 if __name__ == '__main__':
     main()

@@ -1,0 +1,106 @@
+{
+  "C0001": {
+    "d": "Sistema ABS - válvula solenoide delantera derecha",
+    "r": "Revisar solenoide ABS delantera derecha, módulo ABS y cableado"
+  },
+  "C0002": {
+    "d": "Sistema ABS - motor de bomba falla en el circuito",
+    "r": "Revisar motor de bomba ABS, relé y alimentación"
+  },
+  "C0005": {
+    "d": "Sistema ABS - válvula solenoide trasera derecha",
+    "r": "Revisar solenoide ABS trasera derecha y módulo EBCM"
+  },
+  "C0006": {
+    "d": "Sistema ABS - válvula solenoide trasera izquierda",
+    "r": "Revisar solenoide ABS trasera izquierda y módulo EBCM"
+  },
+  "C0010": {
+    "d": "Sensor de velocidad de rueda delantera derecha - falla de señal",
+    "r": "Revisar sensor ABS delantera derecha, anillo tónico y cableado"
+  },
+  "C0011": {
+    "d": "Sensor de velocidad de rueda delantera derecha - rango/funcionamiento",
+    "r": "Revisar separación sensor/anillo tónico delantera derecha"
+  },
+  "C0015": {
+    "d": "Sensor de velocidad de rueda delantera izquierda - falla de señal",
+    "r": "Revisar sensor ABS delantera izquierda, anillo tónico y cableado"
+  },
+  "C0020": {
+    "d": "Sensor de velocidad de rueda trasera derecha - falla de señal",
+    "r": "Revisar sensor ABS trasera derecha, anillo tónico y cableado"
+  },
+  "C0025": {
+    "d": "Sensor de velocidad de rueda trasera izquierda - falla de señal",
+    "r": "Revisar sensor ABS trasera izquierda, anillo tónico y cableado"
+  },
+  "C0035": {
+    "d": "Sensor de velocidad rueda delantera derecha - circuito abierto",
+    "r": "Revisar cableado sensor ABS delantera derecha, buscar corte o falso contacto"
+  },
+  "C0036": {
+    "d": "Sensor de velocidad rueda delantera izquierda - circuito abierto",
+    "r": "Revisar cableado sensor ABS delantera izquierda, buscar corte o falso contacto"
+  },
+  "C0040": {
+    "d": "Sensor de ángulo de dirección - falla de señal",
+    "r": "Revisar sensor ángulo dirección (SAS), recalibrar con escáner"
+  },
+  "C0041": {
+    "d": "Sensor de ángulo de dirección - rango/funcionamiento",
+    "r": "Recalibrar sensor de ángulo de dirección, revisar columna de dirección"
+  },
+  "C0045": {
+    "d": "Sensor de aceleración lateral - falla de señal",
+    "r": "Revisar sensor acelerómetro lateral ESP, cableado y módulo estabilidad"
+  },
+  "C0050": {
+    "d": "Control de estabilidad ESP/ESC - falla de sistema",
+    "r": "Revisar módulo ESP, sensores de rueda y sensor giroscópico"
+  },
+  "C0051": {
+    "d": "Control de estabilidad ESP/ESC - desactivado por falla interna",
+    "r": "Revisar módulo ESP y recalibrar sensores de ángulo y aceleración"
+  },
+  "C0060": {
+    "d": "Sistema de frenos - falla en el circuito del actuador trasero izquierdo",
+    "r": "Revisar actuador freno trasero izquierdo y módulo ABS"
+  },
+  "C0080": {
+    "d": "Módulo ABS - voltaje de alimentación fuera de rango",
+    "r": "Revisar batería, alternador y cableado de alimentación del módulo ABS"
+  },
+  "C0110": {
+    "d": "Motor de bomba ABS - temperatura alta",
+    "r": "Revisar motor de bomba ABS, dejar enfriar, verificar ciclos de activación"
+  },
+  "C0121": {
+    "d": "Válvula solenoide del sistema de frenos - falla en el circuito",
+    "r": "Revisar solenoides del módulo hidráulico ABS y cableado"
+  },
+  "C0200": {
+    "d": "Dirección asistida eléctrica (EPS) - falla de torque",
+    "r": "Revisar sensor de par de dirección, motor EPS y módulo de control"
+  },
+  "C0201": {
+    "d": "Dirección asistida eléctrica (EPS) - temperatura alta motor",
+    "r": "Dejar enfriar el motor EPS, revisar ciclos de trabajo"
+  },
+  "C0300": {
+    "d": "Suspensión activa - falla en actuador delantero derecho",
+    "r": "Revisar actuador suspensión delantera derecha y módulo de suspensión"
+  },
+  "C0305": {
+    "d": "Suspensión activa - falla en actuador delantero izquierdo",
+    "r": "Revisar actuador suspensión delantera izquierda y módulo de suspensión"
+  },
+  "C0455": {
+    "d": "Sensor de posición del pedal de freno - falla de señal",
+    "r": "Revisar sensor posición pedal freno, switch y cableado"
+  },
+  "C0561": {
+    "d": "Sistema ABS - inhabilitado por falta de comunicación",
+    "r": "Revisar comunicación CAN Bus entre ABS y ECM/BCM"
+  }
+}

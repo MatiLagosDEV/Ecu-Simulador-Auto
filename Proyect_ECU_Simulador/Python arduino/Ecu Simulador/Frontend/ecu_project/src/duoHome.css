@@ -256,6 +256,21 @@ body {
   display: inline-block;
 }
 
+.duo-pill-motor {
+  background: rgba(33, 150, 243, 0.12);
+  border-color: rgba(33, 150, 243, 0.35);
+}
+
+.duo-pill-motor-icon {
+  font-size: 1rem;
+  line-height: 1;
+  filter: grayscale(0.2);
+}
+
+.duo-pill-motor-label {
+  color: #90caf9;
+}
+
 /* ===== BOTÓN ===== */
 .duo-btn-row {
   display: flex;

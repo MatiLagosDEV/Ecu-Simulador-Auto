@@ -82,6 +82,10 @@ export default function ConfirmBorrarModal({ onConfirmar, onCancelar }) {
                 <span className="cbm-warn-dot cbm-dot-amber" />
                 <p><strong>Condición:</strong> Motor <span className="cbm-highlight">APAGADO</span>, contacto en posición <span className="cbm-highlight">ON</span>.</p>
               </div>
+                <div className="cbm-warn-row">
+                  <span className="cbm-warn-dot cbm-dot-blue" />
+                  <p><strong>Aviso:</strong> El borrado de códigos apaga la luz del tablero, pero si no reparaste la falla mecánica, la luz volverá a encenderse tras un par de kilómetros. Se recomienda usar esta función después de realizar la reparación.</p>
+                </div>
             </div>
             <div className="cbm-actions">
               <button className="cbm-btn cbm-btn-cancel" onClick={onCancelar}>

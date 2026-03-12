@@ -1,5 +1,6 @@
 # --- Estado persistente del motor ---
 import time
+import serial.tools.list_ports
 from flask import Flask, jsonify, request
 from flask_cors import CORS
 import requests
@@ -7,7 +8,33 @@ from vininfo import Vin
 from conexion_ecu import ecu, enviar_pid, leer_dtc, borrar_codigos as _borrar_arduino
 from pids_motor import pids_motor
 from pids_bateria import pids_bateria
-from decodificadores import decodificar_consumo_combustible
+from decodificadores import (
+    decodificar_consumo_combustible,
+    calcular_consumo_desde_maf,
+    calcular_consumo_desde_map,
+    hex_val,
+)
+
+# --- Detectar tipo de conexión (USB / Bluetooth / Serial) ---
+def detectar_tipo_conexion():
+    """
+    Inspecciona la descripción del puerto COM activo para determinar si la
+    conexión es USB, Bluetooth o Serial genérico.
+    """
+    try:
+        puerto = ecu.port
+        for p in serial.tools.list_ports.comports():
+            if p.device.upper() == str(puerto).upper():
+                desc = (p.description or '').lower()
+                hwid = (p.hwid or '').lower()
+                if 'bluetooth' in desc or 'bt' in desc or 'rfcomm' in desc or 'bluetooth' in hwid:
+                    return 'Bluetooth'
+                if 'usb' in desc or 'usb' in hwid or 'ch340' in desc or 'cp210' in desc or 'ft232' in desc or 'arduino' in desc:
+                    return 'USB'
+                return 'Serial'
+    except Exception:
+        pass
+    return 'USB'  # default conservador
 
 # --- Comunicación robusta con Arduino ---
 def enviar_comando_limpio(comando):
@@ -219,6 +246,10 @@ def _detectar_modelo_override(vin):
 # --- Caché global del VIN (se resuelve una sola vez) ---
 _vin_cache = None
 
+# --- Caché consumo inteligente (máximo 1 recálculo cada 2 s) ---
+_consumo_cache = {'resultado': {'valor': 'N/A', 'metodo': 'N/A'}, 'ts': 0.0}
+_CONSUMO_TTL = 2.0  # segundos
+
 # --- Función para leer VIN ---
 def leer_vin():
     """Lee VIN desde Arduino y decodifica marca, país, año aproximado y modelo vía NHTSA"""
@@ -264,16 +295,88 @@ def leer_vin():
         }
         año = año_mapping.get(año_caracter, "Desconocido")
 
-        # Modelo vía NHTSA (funciona bien con VINs norteamericanos)
+        # Modelo y datos del motor vía NHTSA (funciona bien con VINs norteamericanos)
         modelo = "-"
+        cilindrada = None
+        config_motor = None
+        num_cilindros = None
+        combustible = None
         try:
             url = f"https://vpic.nhtsa.dot.gov/api/vehicles/decodevin/{vin}?format=json"
             resp_api = requests.get(url, timeout=5).json()
-            valor = next((x["Value"] for x in resp_api["Results"] if x["Variable"] == "Model"), None)
-            if valor and valor.strip() and valor.strip().lower() != "null":
-                modelo = valor.strip()
-        except:
+            resultados = resp_api.get("Results", [])
+            valor_modelo = next((x["Value"] for x in resultados if x["Variable"] == "Model"), None)
+            if valor_modelo and valor_modelo.strip() and valor_modelo.strip().lower() != "null":
+                modelo = valor_modelo.strip()
+
+            def _nhtsa(var):
+                v = next((x["Value"] for x in resultados if x["Variable"] == var), None)
+                if v and v.strip() and v.strip().lower() not in ("null", "not applicable", "n/a", ""):
+                    return v.strip()
+                return None
+
+            # Cilindrada del motor (Displacement L)
+            valor_cil = _nhtsa("Displacement (L)")
+            if valor_cil:
+                try:
+                    cilindrada = round(float(valor_cil), 1)
+                except Exception:
+                    cilindrada = None
+
+            # Configuración, cilindros y combustible
+            config_motor  = _nhtsa("Engine Configuration")
+            num_cilindros = _nhtsa("Engine Number of Cylinders")
+            combustible   = _nhtsa("Fuel Type - Primary")
+        except Exception:
             pass
+
+        # Traducciones de valores NHTSA al español
+        _CONFIG_ES = {
+            'in-line': 'En línea',
+            'inline':  'En línea',
+            'v-shaped': 'V',
+            'v':        'V',
+            'flat':     'Bóxer',
+            'opposed':  'Bóxer',
+            'w-shaped': 'W',
+            'w':        'W',
+            'rotary':   'Rotativo',
+            'single cylinder': 'Monocilíndrico',
+        }
+        _FUEL_ES = {
+            'gasoline':                            'Gasolina',
+            'diesel':                              'Diésel',
+            'electric':                            'Eléctrico',
+            'flex fuel':                           'Flex Fuel',
+            'flexible fuel vehicle (ffv)':         'Flex Fuel',
+            'flexible fuel vehicle':               'Flex Fuel',
+            'natural gas':                         'Gas Natural',
+            'compressed natural gas (cng)':        'Gas Natural (CNG)',
+            'liquefied natural gas (lng)':         'Gas Natural (LNG)',
+            'hybrid':                              'Híbrido',
+            'plug-in hybrid':                      'Híbrido Enchufable',
+            'plug-in hybrid electric vehicle (phev)': 'Híbrido Enchufable',
+            'hydrogen':                            'Hidrógeno',
+            'propane':                             'Propano',
+            'biofuel':                             'Biocombustible',
+            'ethanol':                             'Etanol',
+        }
+        if config_motor:
+            config_motor = _CONFIG_ES.get(config_motor.lower(), config_motor)
+        if combustible:
+            combustible = _FUEL_ES.get(combustible.lower(), combustible)
+
+        # Construir descripción legible del motor
+        partes_motor = []
+        if cilindrada:
+            partes_motor.append(f"{cilindrada}L")
+        if config_motor:
+            partes_motor.append(config_motor)
+        if num_cilindros:
+            partes_motor.append(f"{num_cilindros} cil.")
+        if combustible:
+            partes_motor.append(combustible)
+        motor_desc = " · ".join(partes_motor) if partes_motor else "-"
 
         # Si NHTSA no devolvió modelo, buscar en tabla de overrides europeos/asiáticos
         if modelo == "-":
@@ -282,12 +385,51 @@ def leer_vin():
         # Usar override de marca si existe, si no usar vininfo
         marca = _detectar_marca_override(vin) or vin_obj.manufacturer
 
+        _PAIS_ES = {
+            'japan':          'Japón',
+            'united states':  'EE. UU.',
+            'usa':            'EE. UU.',
+            'germany':        'Alemania',
+            'south korea':    'Corea del Sur',
+            'korea':          'Corea del Sur',
+            'france':         'Francia',
+            'italy':          'Italia',
+            'spain':          'España',
+            'united kingdom': 'Reino Unido',
+            'england':        'Reino Unido',
+            'mexico':         'México',
+            'canada':         'Canadá',
+            'china':          'China',
+            'sweden':         'Suecia',
+            'australia':      'Australia',
+            'brazil':         'Brasil',
+            'india':          'India',
+            'netherlands':    'Países Bajos',
+            'czech republic': 'República Checa',
+            'slovakia':       'Eslovaquia',
+            'austria':        'Austria',
+            'belgium':        'Bélgica',
+            'finland':        'Finlandia',
+            'portugal':       'Portugal',
+            'russia':         'Rusia',
+            'turkey':         'Turquía',
+            'south africa':   'Sudáfrica',
+            'taiwan':         'Taiwán',
+            'thailand':       'Tailandia',
+            'malaysia':       'Malasia',
+            'indonesia':      'Indonesia',
+        }
+        pais_raw = vin_obj.country or ''
+        pais = _PAIS_ES.get(pais_raw.lower(), pais_raw)
+
         resultado = {
             "vin": vin,
             "marca": marca,
-            "pais": vin_obj.country,
+            "pais": pais,
             "año": año,
-            "modelo": modelo
+            "modelo": modelo,
+            "cilindrada": cilindrada,
+            "motor": motor_desc,
         }
         # Solo cachear si el modelo se resolvió correctamente
         if modelo != "-":
@@ -357,14 +499,85 @@ def decodificar_pid(pid, respuesta):
     else:
         return respuesta
 
+# --- Consumo inteligente: MAF → MAP (cascada) ---
+def _consumo_desde_raws(raws):
+    """
+    Calcula el consumo a partir de un dict de respuestas raw ya leídas
+    {pid: respuesta_hex}. No toca el puerto serial.
+    """
+    def _ok(r): return bool(r) and 'NO DATA' not in r.upper() and 'ERROR' not in r.upper()
+
+    # ── Intento 1: MAF (0110) ────────────────────────────────────
+    resp_maf = raws.get('0110', '')
+    if _ok(resp_maf):
+        b = resp_maf.split()
+        if len(b) >= 4:
+            A = hex_val(b[2]); B = hex_val(b[3])
+            if A is not None and B is not None:
+                maf_gs = ((A * 256) + B) / 100
+                lh = calcular_consumo_desde_maf(maf_gs)
+                if lh is not None:
+                    return {'valor': f'{lh} L/h', 'metodo': 'MAF'}
+
+    # ── Intento 2: MAP + RPM + IAT (Speed Density) ──────────────
+    resp_map = raws.get('010B', '')
+    resp_rpm = raws.get('010C', '')
+    resp_iat = raws.get('010F', '')
+
+    if _ok(resp_map) and _ok(resp_rpm):
+        bm = resp_map.split(); br = resp_rpm.split()
+        map_kpa = hex_val(bm[2]) if len(bm) >= 3 else None
+        rpm = None
+        if len(br) >= 4:
+            A_r = hex_val(br[2]); B_r = hex_val(br[3])
+            if A_r is not None and B_r is not None:
+                rpm = ((A_r * 256) + B_r) // 4
+        iat_c = 25  # default si no hay sensor IAT
+        if _ok(resp_iat):
+            bi = resp_iat.split()
+            if len(bi) >= 3:
+                raw = hex_val(bi[2])
+                if raw is not None:
+                    iat_c = raw - 40
+        cilindrada = (_vin_cache or {}).get('cilindrada') or 1.6
+        lh = calcular_consumo_desde_map(map_kpa, rpm, iat_c, cilindrada_L=cilindrada)
+        if lh is not None:
+            return {'valor': f'{lh} L/h', 'metodo': 'MAP'}
+
+    return {'valor': 'N/A', 'metodo': 'N/A'}
+
+
+def _consumo_inteligente():
+    """
+    Versión con caché (TTL 2 s) para el endpoint /consumo-inteligente.
+    Consulta el serial solo cuando el caché expiró.
+    """
+    global _consumo_cache
+    if time.monotonic() - _consumo_cache['ts'] < _CONSUMO_TTL:
+        return _consumo_cache['resultado']
+    resultado = _consumo_desde_raws({
+        '0110': enviar_pid('0110'),
+        '010B': enviar_pid('010B'),
+        '010C': enviar_pid('010C'),
+        '010F': enviar_pid('010F'),
+    })
+    _consumo_cache = {'resultado': resultado, 'ts': time.monotonic()}
+    return resultado
+
+
 # --- Obtener todos los datos ---
 def get_all_data():
     data = {}
+    raws = {}  # respuestas hex crudas — reutilizadas para consumo, sin queries extra
     pids_todos = {**pids_motor, **pids_bateria}
     for pid, nombre in pids_todos.items():
         valor_crudo = enviar_pid(pid)
+        raws[pid] = valor_crudo
         valor = decodificar_pid(pid, valor_crudo)
         data[pid] = {'nombre': nombre, 'valor': valor}
+
+    # Consumo calculado desde datos ya leídos — cero queries extra al serial
+    data['consumo_inteligente'] = _consumo_desde_raws(raws)
 
     # VIN y info del vehículo
     data['vehiculo'] = leer_vin()
@@ -377,6 +590,11 @@ CORS(app)
 @app.route('/datos', methods=['GET'])
 def datos():
     return jsonify(get_all_data())
+
+@app.route('/consumo-inteligente', methods=['GET'])
+def consumo_inteligente_endpoint():
+    """Devuelve el consumo calculado con MAF o MAP (cascada). Útil para polling rápido."""
+    return jsonify(_consumo_inteligente())
 
 @app.route('/codigos', methods=['GET'])
 def get_codigos():
@@ -491,10 +709,10 @@ def estado_motor_inteligente():
         resp = ecu.readline().decode().strip()
 
         if not resp or 'NO DATA' in resp.upper():
-            return jsonify({'estado': 'APAGADO', 'rpm': 0, 'voltaje': voltaje})
+            return jsonify({'estado': 'APAGADO', 'rpm': 0, 'voltaje': voltaje, 'conexion': detectar_tipo_conexion()})
 
         if 'SEARCHING' in resp.upper() or 'ERROR' in resp.upper():
-            return jsonify({'estado': 'CONECTANDO', 'rpm': 0, 'voltaje': voltaje})
+            return jsonify({'estado': 'CONECTANDO', 'rpm': 0, 'voltaje': voltaje, 'conexion': detectar_tipo_conexion()})
 
         datos = resp.split()
         if len(datos) >= 4:
@@ -502,14 +720,14 @@ def estado_motor_inteligente():
             B = int(datos[3], 16)
             valor_rpm = ((A * 256) + B) // 4
             if valor_rpm > 400:
-                return jsonify({'estado': 'ENCENDIDO', 'rpm': valor_rpm, 'voltaje': voltaje})
+                return jsonify({'estado': 'ENCENDIDO', 'rpm': valor_rpm, 'voltaje': voltaje, 'conexion': detectar_tipo_conexion()})
             else:
-                return jsonify({'estado': 'CONTACTO', 'rpm': valor_rpm, 'voltaje': voltaje})
+                return jsonify({'estado': 'CONTACTO', 'rpm': valor_rpm, 'voltaje': voltaje, 'conexion': detectar_tipo_conexion()})
 
-        return jsonify({'estado': 'CONECTANDO', 'rpm': 0, 'voltaje': voltaje})
+        return jsonify({'estado': 'CONECTANDO', 'rpm': 0, 'voltaje': voltaje, 'conexion': detectar_tipo_conexion()})
 
     except Exception:
-        return jsonify({'estado': 'APAGADO', 'rpm': 0, 'voltaje': voltaje})
+        return jsonify({'estado': 'APAGADO', 'rpm': 0, 'voltaje': voltaje, 'conexion': detectar_tipo_conexion()})
 
 @app.route('/protocolo', methods=['GET'])
 def get_protocolo_actual():

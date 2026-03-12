@@ -111,8 +111,12 @@
 .ce-page-empty p { margin: 0; text-shadow: 0 0 20px rgba(255,255,255,0.3); }
 .ce-page-empty-icon {
   font-size: 4.5rem;
+  color: rgba(255,255,255,0.75);
   filter: drop-shadow(0 0 18px rgba(255,255,255,0.6)) drop-shadow(0 0 40px rgba(33,150,243,0.4));
   animation: empty-glow 2.5s ease-in-out infinite;
+  display: flex;
+  align-items: center;
+  justify-content: center;
 }
 @keyframes empty-glow {
   0%, 100% { filter: drop-shadow(0 0 14px rgba(255,255,255,0.5)) drop-shadow(0 0 30px rgba(33,150,243,0.3)); }

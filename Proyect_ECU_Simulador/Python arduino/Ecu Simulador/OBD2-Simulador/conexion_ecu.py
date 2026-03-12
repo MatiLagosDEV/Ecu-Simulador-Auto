@@ -1,10 +1,14 @@
 import serial
 import time
+import threading
 from pids_codigos import nombre_codigos
 
 # Conexión con Arduino
 ecu = serial.Serial("COM3", 9600, timeout=1)
 time.sleep(2)  # Esperar a que el Arduino reinicie
+
+# Lock reentrant — evita colisiones si Flask atiende peticiones en paralelo
+_serial_lock = threading.RLock()
 
 # --- Inicialización del adaptador OBD-II ---
 # Sin este paso el Arduino está en estado 0 (OFF) y responde "NO DATA" a todo.
@@ -28,13 +32,17 @@ except Exception as _e:
 
 # --- FUNCIONES OBD ---
 def enviar_pid(pid):
-    ecu.write((pid+"\n").encode())
-    resp = ecu.readline().decode().strip()
+    with _serial_lock:
+        ecu.write((pid+"\n").encode())
+        resp = ecu.readline().decode().strip()
+        time.sleep(0.03)  # 30 ms — previene saturación del ELM327
     return resp
 
 def leer_dtc():
-    ecu.write(b"03\n")
-    resp = ecu.readline().decode().strip()
+    with _serial_lock:
+        ecu.write(b"03\n")
+        resp = ecu.readline().decode().strip()
+        time.sleep(0.03)
     print("\nRespuesta ECU:", resp)
 
     if resp == "" or "NO DATA" in resp:
@@ -55,8 +63,10 @@ def leer_dtc():
 
 def leer_pending_dtc():
     """Mode 07 — códigos pendientes (detectados pero no confirmados aún)."""
-    ecu.write(b"07\n")
-    resp = ecu.readline().decode().strip()
+    with _serial_lock:
+        ecu.write(b"07\n")
+        resp = ecu.readline().decode().strip()
+        time.sleep(0.03)
     if resp == "" or "NO DATA" in resp:
         return []
     b = resp.split()
@@ -64,12 +74,16 @@ def leer_pending_dtc():
     return codigos
 
 def borrar_codigos():
-    ecu.write(b"04\n")
-    resp = ecu.readline().decode().strip()
+    with _serial_lock:
+        ecu.write(b"04\n")
+        resp = ecu.readline().decode().strip()
+        time.sleep(0.03)
     return resp
 
 def borrar_codigo(codigo):
-    comando = f"DEL {codigo}\n"
-    ecu.write(comando.encode())
-    resp = ecu.readline().decode().strip()
+    with _serial_lock:
+        comando = f"DEL {codigo}\n"
+        ecu.write(comando.encode())
+        resp = ecu.readline().decode().strip()
+        time.sleep(0.03)
     return resp

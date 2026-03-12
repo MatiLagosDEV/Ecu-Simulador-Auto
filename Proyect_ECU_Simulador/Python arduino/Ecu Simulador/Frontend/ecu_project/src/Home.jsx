@@ -3,6 +3,7 @@ import { getDatosObd2, escanearCodigos, borrarCodigos, getEstadoMotor } from './
 import Tacometro from './Tacometro';
 import Velocimetro from './Velocimetro';
 import CheckEnginePage from './CheckEnginePage';
+import SensoresAvanzadosPage from './SensoresAvanzadosPage';
 import ConfirmBorrarModal from './ConfirmBorrarModal';
 import './duoHome.css';
 
@@ -32,7 +33,7 @@ const DATOS_VACIOS = {
   '015E': { nombre: 'Consumo',     valor: '0'      },
   '0101': { nombre: 'Check Engine',valor: 'APAGADO'},
   '0142': { nombre: 'Batería',     valor: '0'      },
-  vehiculo: { vin: '-', marca: '-', pais: '-', año: '-', modelo: '-' },
+  vehiculo: { vin: '-', marca: '-', pais: '-', año: '-', modelo: '-', motor: '-' },
   motor: 'Apagado',
 };
 
@@ -77,6 +78,7 @@ function getCodeMeta(code) {
 function Home() {
   const [datos, setDatos] = useState(DATOS_VACIOS);
   const [estadoMotor, setEstadoMotor] = useState('APAGADO'); // 'APAGADO' | 'CONTACTO' | 'ENCENDIDO'
+  const [tipoConexion, setTipoConexion] = useState(null); // 'USB' | 'Bluetooth' | 'Serial'
   const [servidorOnline, setServidorOnline] = useState(false);
   const [checkEngine, setCheckEngine] = useState(null);
   const [escaneando, setEscaneando] = useState(false);
@@ -84,6 +86,7 @@ function Home() {
   const [modalBorrar, setModalBorrar] = useState(false);
   const [expandedCodes, setExpandedCodes] = useState(new Set());
   const [paginaCE, setPaginaCE] = useState(false);
+  const [paginaSensores, setPaginaSensores] = useState(false);
 
   const toggleCode = (code) => setExpandedCodes(prev => {
     const next = new Set(prev);
@@ -195,6 +198,7 @@ function Home() {
 
         prevEstadoRef.current = nuevoEstado;
         setEstadoMotor(nuevoEstado);
+        if (estadoData.conexion) setTipoConexion(estadoData.conexion);
       } catch (_) {
         // ERR_CONNECTION_REFUSED u otro error de red: aplicar backoff
         if (!activo) return;
@@ -410,7 +414,23 @@ function Home() {
                 <span className="duo-pill-sep" />
                 <span className="duo-pill-label">{datos.vehiculo.pais}</span>
               </div>
+              {datos.vehiculo.motor && datos.vehiculo.motor !== '-' && (
+                <div className="duo-pill duo-pill-motor">
+                  <span className="duo-pill-motor-icon">⚙️</span>
+                  <span className="duo-pill-label duo-pill-motor-label">Motor</span>
+                  <span className="duo-pill-sep" />
+                  <span className="duo-pill-value">{datos.vehiculo.motor}</span>
+                </div>
+              )}
             </div>
+          )}
+
+          {/* ===== SENSORES AVANZADOS PAGE (pantalla completa) ===== */}
+          {paginaSensores && (
+            <SensoresAvanzadosPage
+              datos={datos}
+              onVolver={() => setPaginaSensores(false)}
+            />
           )}
 
           {/* ===== CHECK ENGINE PAGE (pantalla completa) ===== */}
@@ -591,6 +611,16 @@ function Home() {
                  : estadoMotor === 'CONECTANDO' ? 'Buscando...'
                  : 'Apagado'}
               </span>
+              {servidorOnline && tipoConexion && (
+                <span style={{
+                  fontSize: '0.7rem', fontWeight: 600,
+                  color: tipoConexion === 'Bluetooth' ? '#ce93d8' : '#81d4fa',
+                  marginTop: '0.2rem', letterSpacing: '0.04em',
+                }}>
+                  {tipoConexion}
+                </span>
+              )}
+
             </div>
           </div>
 
@@ -644,6 +674,40 @@ function Home() {
                 </button>
               </div>
             )}
+
+            {/* ── Mini-tarjeta Sensores Avanzados ── */}
+            {servidorOnline && (
+              <div
+                className="ce-stat-card"
+                onClick={() => setPaginaSensores(true)}
+              >
+                <span className="ce-stat-icon">
+                  <svg viewBox="0 0 40 48" fill="none" xmlns="http://www.w3.org/2000/svg"
+                    style={{ width: '2.6rem', height: '3.1rem', color: '#ffd740',
+                      filter: 'drop-shadow(0 0 6px rgba(255,215,64,0.7))' }}>
+                    <rect x="4" y="10" width="32" height="34" rx="4" stroke="currentColor" strokeWidth="2.2" fill="none"/>
+                    <rect x="8" y="14" width="24" height="12" rx="2" stroke="currentColor" strokeWidth="1.6" fill="rgba(255,215,64,0.1)"/>
+                    <text x="20" y="23.5" textAnchor="middle" fontSize="7" fontWeight="700"
+                      fill="currentColor" fontFamily="monospace">12.6V</text>
+                    <circle cx="20" cy="35" r="5" stroke="currentColor" strokeWidth="1.8" fill="none"/>
+                    <line x1="20" y1="30" x2="20" y2="32.5" stroke="currentColor" strokeWidth="2" strokeLinecap="round"/>
+                    <line x1="13" y1="44" x2="15" y2="38" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round"/>
+                    <line x1="27" y1="44" x2="25" y2="38" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round"/>
+                    <line x1="14" y1="10" x2="14" y2="6" stroke="currentColor" strokeWidth="2" strokeLinecap="round"/>
+                    <line x1="26" y1="10" x2="26" y2="6" stroke="currentColor" strokeWidth="2" strokeLinecap="round"/>
+                  </svg>
+                </span>
+                <span className="ce-stat-label">Sensores Avanzados</span>
+                <span className="ce-stat-count-ok" style={{ color: '#ffd740' }}>12 sensores</span>
+                <button
+                  className="ce-stat-scan-btn ce-stat-scan-btn-blue"
+                  onClick={e => { e.stopPropagation(); setPaginaSensores(true); }}
+                >
+                  Ver sensores
+                </button>
+              </div>
+            )}
+
             {datos["0105"] && (
               <div className="duo-stat-card">
                 <span className="duo-stat-icon">🌡️</span>
@@ -652,13 +716,24 @@ function Home() {
                 <span className="duo-stat-badge" style={{ color: colorTemperatura(datos["0105"].valor) }}>{estadoTemperatura(datos["0105"].valor)}</span>
               </div>
             )}
-            {datos["015E"] && (
-              <div className="duo-stat-card">
-                <span className="duo-stat-icon">⛽</span>
-                <span className="duo-stat-label">Consumo</span>
-                <span className="duo-stat-value">{datos["015E"].valor}</span>
-              </div>
-            )}
+            {(datos["consumo_inteligente"] || datos["015E"]) && (() => {
+              const ci = datos["consumo_inteligente"];
+              const valor = ci ? ci.valor : datos["015E"].valor;
+              const metodo = ci ? ci.metodo : null;
+              const colorMetodo = metodo === 'MAF' ? '#42a5f5' : metodo === 'MAP' ? '#ffa726' : '#888';
+              return (
+                <div className="duo-stat-card">
+                  <span className="duo-stat-icon">⛽</span>
+                  <span className="duo-stat-label">Consumo</span>
+                  <span className="duo-stat-value">{valor}</span>
+                  {metodo && metodo !== 'N/A' && (
+                    <span className="duo-stat-badge" style={{ color: colorMetodo }}>
+                      vía {metodo}
+                    </span>
+                  )}
+                </div>
+              );
+            })()}
             {datos["0142"] && (
               <div className="duo-stat-card">
                 <span className="duo-stat-icon">🔋</span>

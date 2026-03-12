@@ -90,7 +90,37 @@ export default function CheckEnginePage({
       <div className="ce-page-content">
         {checkEngine === null ? (
           <div className="ce-page-empty">
-            <span className="ce-page-empty-icon">🔍</span>
+            <span className="ce-page-empty-icon">
+              {/* Símbolo abstracto red CAN: bus central + nodos ECU */}
+              <svg viewBox="0 0 80 60" fill="none" xmlns="http://www.w3.org/2000/svg"
+                style={{ width: '4.5rem', height: '3.4rem' }}>
+                {/* Bus CAN — línea horizontal central */}
+                <line x1="10" y1="30" x2="70" y2="30" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round"/>
+                {/* Terminadores de bus */}
+                <rect x="5" y="26" width="5" height="8" rx="1.5" fill="currentColor" opacity="0.6"/>
+                <rect x="70" y="26" width="5" height="8" rx="1.5" fill="currentColor" opacity="0.6"/>
+                {/* Stub nodo 1 — arriba izq */}
+                <line x1="20" y1="30" x2="20" y2="14" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round"/>
+                <rect x="13" y="7" width="14" height="10" rx="2.5" stroke="currentColor" strokeWidth="1.8" fill="none"/>
+                <text x="20" y="14.5" textAnchor="middle" fontSize="4.5" fill="currentColor" fontFamily="monospace" fontWeight="700">ECU</text>
+                {/* Stub nodo 2 — arriba centro */}
+                <line x1="40" y1="30" x2="40" y2="14" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round"/>
+                <rect x="33" y="7" width="14" height="10" rx="2.5" stroke="currentColor" strokeWidth="1.8" fill="none"/>
+                <text x="40" y="14.5" textAnchor="middle" fontSize="4.5" fill="currentColor" fontFamily="monospace" fontWeight="700">ABS</text>
+                {/* Stub nodo 3 — arriba der */}
+                <line x1="60" y1="30" x2="60" y2="14" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round"/>
+                <rect x="53" y="7" width="14" height="10" rx="2.5" stroke="currentColor" strokeWidth="1.8" fill="none"/>
+                <text x="60" y="14.5" textAnchor="middle" fontSize="4.5" fill="currentColor" fontFamily="monospace" fontWeight="700">BCM</text>
+                {/* Stub nodo 4 — abajo centro */}
+                <line x1="40" y1="30" x2="40" y2="46" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round"/>
+                <rect x="33" y="43" width="14" height="10" rx="2.5" stroke="currentColor" strokeWidth="1.8" fill="none"/>
+                <text x="40" y="50.5" textAnchor="middle" fontSize="4.5" fill="currentColor" fontFamily="monospace" fontWeight="700">OBD</text>
+                {/* Puntos de unión al bus */}
+                <circle cx="20" cy="30" r="2.2" fill="currentColor"/>
+                <circle cx="40" cy="30" r="2.2" fill="currentColor"/>
+                <circle cx="60" cy="30" r="2.2" fill="currentColor"/>
+              </svg>
+            </span>
             <p>Sin datos de escaneo. Presiona <strong>Escanear</strong> para comenzar.</p>
           </div>
         ) : totalCodes === 0 ? (

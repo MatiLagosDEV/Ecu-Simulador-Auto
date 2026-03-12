@@ -114,3 +114,33 @@ def decodificar_consumo_cilindros(b):
         except:
             consumos.append("N/A")
     return consumos
+
+def calcular_consumo_desde_maf(maf_gs):
+    """
+    Calcula el consumo de combustible en L/h a partir del flujo MAF en g/s.
+    Fórmula estequiométrica gasolina:
+      Relación aire/combustible = 14.7:1
+      Densidad gasolina ≈ 750 g/L
+    """
+    if maf_gs is None or maf_gs < 0:
+        return None
+    return round((maf_gs / 14.7 / 750) * 3600, 2)
+
+def calcular_consumo_desde_map(map_kpa, rpm, iat_c, cilindrada_L=1.6):
+    """
+    Speed Density: calcula consumo L/h desde MAP (kPa), RPM y
+    temperatura de aire de admisión (°C).
+    cilindrada_L: se obtiene del VIN vía NHTSA; default 1.6L (motor más universal).
+    """
+    if rpm is None or rpm <= 0 or map_kpa is None or map_kpa <= 0:
+        return None
+    T_K = (iat_c if iat_c is not None else 25) + 273.15
+    VE      = 0.85          # Eficiencia volumétrica típica
+    R_aire  = 287.1         # J/(kg·K) — constante específica del aire
+    Vd_m3   = cilindrada_L / 1000.0
+    MAP_Pa  = map_kpa * 1000.0
+    N_rev_s = rpm / 60.0    # revoluciones por segundo
+    # Motor 4 tiempos: N/2 ciclos por segundo
+    maf_kg_s = (MAP_Pa * Vd_m3 * VE * (N_rev_s / 2)) / (R_aire * T_K)
+    maf_gs   = maf_kg_s * 1000
+    return round((maf_gs / 14.7 / 750) * 3600, 2)
