@@ -1,0 +1,202 @@
+/* ═══════════════════════════════════════════════════════════
+   LICENCE ACTIVATION COMPONENT
+   ═══════════════════════════════════════════════════════════ */
+
+.license-activation {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  background: rgba(0, 0, 0, 0.8);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 9999;
+  backdrop-filter: blur(4px);
+}
+
+.license-activation-card {
+  background: linear-gradient(135deg, #1e1e2e 0%, #2d2d3d 100%);
+  border: 1px solid rgba(139, 92, 246, 0.3);
+  border-radius: 16px;
+  padding: 2.5rem;
+  max-width: 500px;
+  width: 90%;
+  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.5),
+    inset 0 1px 0 rgba(255, 255, 255, 0.1);
+  animation: slideUp 0.3s ease-out;
+}
+
+@keyframes slideUp {
+  from {
+    opacity: 0;
+    transform: translateY(20px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.license-activation-header {
+  text-align: center;
+  margin-bottom: 2rem;
+}
+
+.license-activation-header h2 {
+  font-size: 1.75rem;
+  color: #fff;
+  margin: 0 0 0.5rem 0;
+  font-weight: 600;
+}
+
+.license-activation-header p {
+  color: #a0a0a0;
+  font-size: 0.95rem;
+  margin: 0;
+}
+
+.license-activation-body {
+  margin-bottom: 2rem;
+}
+
+.license-key-input {
+  width: 100%;
+  padding: 1rem;
+  background: rgba(255, 255, 255, 0.05);
+  border: 1.5px solid rgba(139, 92, 246, 0.3);
+  border-radius: 8px;
+  color: #fff;
+  font-size: 0.95rem;
+  font-family: "Monaco", "Courier New", monospace;
+  letter-spacing: 0.05em;
+  margin-bottom: 1rem;
+  transition: all 0.2s ease;
+  text-transform: uppercase;
+}
+
+.license-key-input:focus {
+  outline: none;
+  border-color: rgba(139, 92, 246, 0.8);
+  background: rgba(255, 255, 255, 0.08);
+  box-shadow: 0 0 12px rgba(139, 92, 246, 0.2);
+}
+
+.license-key-input:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.license-key-input::placeholder {
+  color: rgba(160, 160, 160, 0.5);
+}
+
+.license-error {
+  background: rgba(255, 59, 48, 0.1);
+  border: 1px solid rgba(255, 59, 48, 0.3);
+  color: #ff6b6b;
+  padding: 0.75rem;
+  border-radius: 6px;
+  font-size: 0.9rem;
+  margin-bottom: 1rem;
+}
+
+.license-activate-btn {
+  width: 100%;
+  padding: 1rem;
+  background: linear-gradient(135deg, #8b5cf6 0%, #7c3aed 100%);
+  color: #fff;
+  border: none;
+  border-radius: 8px;
+  font-size: 1rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+.license-activate-btn:hover:not(:disabled) {
+  transform: translateY(-2px);
+  box-shadow: 0 8px 24px rgba(139, 92, 246, 0.4);
+}
+
+.license-activate-btn:active:not(:disabled) {
+  transform: translateY(0);
+}
+
+.license-activate-btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.license-help {
+  text-align: center;
+  margin-top: 1rem;
+  font-size: 0.9rem;
+  color: #a0a0a0;
+}
+
+.license-help a {
+  color: #8b5cf6;
+  text-decoration: none;
+  font-weight: 600;
+  transition: color 0.2s ease;
+}
+
+.license-help a:hover {
+  color: #a78bfa;
+}
+
+.license-features {
+  background: rgba(139, 92, 246, 0.1);
+  border: 1px solid rgba(139, 92, 246, 0.2);
+  border-radius: 8px;
+  padding: 1.5rem;
+  margin-top: 2rem;
+}
+
+.license-features h3 {
+  color: #a78bfa;
+  font-size: 0.95rem;
+  margin: 0 0 1rem 0;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+.license-features ul {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+}
+
+.license-features li {
+  color: #d0d0d0;
+  font-size: 0.9rem;
+  margin: 0.5rem 0;
+  line-height: 1.4;
+}
+
+.license-features li:before {
+  content: "✓ ";
+  color: #8b5cf6;
+  font-weight: bold;
+  margin-right: 0.5rem;
+}
+
+/* Responsive */
+@media (max-width: 600px) {
+  .license-activation-card {
+    padding: 1.5rem;
+  }
+
+  .license-activation-header h2 {
+    font-size: 1.5rem;
+  }
+
+  .license-features {
+    padding: 1rem;
+  }
+}

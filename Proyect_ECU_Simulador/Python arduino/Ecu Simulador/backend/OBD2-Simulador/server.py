@@ -752,7 +752,7 @@ def leer_vin():
     try:
         if MODO_SIMULADOR:
             # En modo simulador usamos un VIN fijo y válido
-            vin = "1G1Y12D77KS120296"
+            vin = "JTEZU4JR6B5020285"
         else:
             ecu.write(b"0902\n")  # PID estándar para VIN
             resp = ecu.readline().decode().strip()
