@@ -5,6 +5,9 @@ import Velocimetro from '../components/Velocimetro';
 import CheckEnginePage from '../components/CheckEnginePage';
 import SensoresAvanzadosPage from '../components/SensoresAvanzadosPage';
 import ConfirmBorrarModal from '../components/ConfirmBorrarModal';
+import ProtectedFeature from '../components/ProtectedFeature';
+import LicenseActivation from '../components/LicenseActivation';
+import { getVisibleFaults, canDeleteFaults, getMoreFaultsMessage } from '../utils/freemiumHelpers';
 import '../styles/duoHome.css';
 
 // Secuencia overlay primera conexión (el mensaje de protocolo se rellenará dinámico)
@@ -75,7 +78,7 @@ function getCodeMeta(code) {
 }
 // ──────────────────────────────────────────────────────────────────────────── //
 
-function Home({ licensePro, licenseKey, deviceId, onUnauthorized }) {
+function Home({ licensePro, licenseKey, deviceId, onActivateLicense, onTransferLicense, onSuccessActivation }) {
   const [datos, setDatos] = useState(DATOS_VACIOS);
   const [isAuthorized, setIsAuthorized] = useState(false);
   const [authError, setAuthError] = useState(null);
@@ -89,6 +92,7 @@ function Home({ licensePro, licenseKey, deviceId, onUnauthorized }) {
   const [expandedCodes, setExpandedCodes] = useState(new Set());
   const [paginaCE, setPaginaCE] = useState(false);
   const [paginaSensores, setPaginaSensores] = useState(false);
+  const [showActivation, setShowActivation] = useState(false);  // 🆕 Modal de activación PRO
 
   const toggleCode = (code) => setExpandedCodes(prev => {
     const next = new Set(prev);
@@ -165,50 +169,11 @@ function Home({ licensePro, licenseKey, deviceId, onUnauthorized }) {
     avanzar();
   };
 
-  // ✅ VALIDACIÓN DE BACKEND AL MONTAR
-  // Esto es crítico: aunque hackeen el frontend, el backend siempre valida
+  // ✅ VALIDACIÓN SIMPLIFICADA FREEMIUM
+  // En FREEMIUM, la app siempre funciona. Restricciones en funciones (borrar, etc)
   useEffect(() => {
-    const validarLicenciaConBackend = async () => {
-      try {
-        const response = await fetch('http://127.0.0.1:8000/license/status', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            license_key: licenseKey,
-            device_id: deviceId
-          })
-        });
-
-        if (!response.ok) {
-          throw new Error('No autorizado');
-        }
-
-        const data = await response.json();
-
-        if (data.valid) {
-          // ✅ Licencia válida - permitir acceso
-          setIsAuthorized(true);
-          setAuthError(null);
-        } else {
-          // ❌ Licencia inválida - bloquear acceso
-          setIsAuthorized(false);
-          setAuthError(data.message || 'Licencia no válida');
-          if (onUnauthorized) {
-            setTimeout(() => onUnauthorized(), 1000);
-          }
-        }
-      } catch (err) {
-        console.error('Error validando licencia:', err);
-        setIsAuthorized(false);
-        setAuthError('Error validando licencia');
-        if (onUnauthorized) {
-          setTimeout(() => onUnauthorized(), 1500);
-        }
-      }
-    };
-
-    validarLicenciaConBackend();
-  }, [licenseKey, deviceId, onUnauthorized]);
+    setIsAuthorized(true);  // 🆕 Siempre autorizado (restricción en funciones)
+  }, []);
 
   // Mensajes rotativos overlay ciclo arranque
   useEffect(() => {
@@ -357,10 +322,36 @@ function Home({ licensePro, licenseKey, deviceId, onUnauthorized }) {
     if (!res.error) setCheckEngine({ mil: false, codigos: [], pendientes: [], freeze_frame: null });
   };
 
-  // Abre el modal de confirmación en lugar de borrar directamente
-  const handleBorrar = () => setModalBorrar(true);
+  // 🆕 Manejo de borrado protegido por PRO
+  const handleBorrar = () => {
+    if (!canDeleteFaults(licensePro)) {
+      // Mostrar modal de activación
+      setShowActivation(true);
+      return;
+    }
+    // Si es PRO, mostrar confirmación de borrado
+    setModalBorrar(true);
+  };
+
+  // 🆕 Manejo de sensores avanzados protegido por PRO
+  const handleSensores = () => {
+    // Siempre permitir abrir la página de sensores
+    setPaginaSensores(true);
+  };
 
   // ✅ ESTRUCTURA CONDICIONAL EN EL JSX (sin early return en el cuerpo del componente)
+  // 🆕 Filtrar fallas visibles según estado PRO
+  const filteredCheckEngine = checkEngine && checkEngine.codigos 
+    ? {
+        ...checkEngine,
+        codigos: getVisibleFaults(checkEngine.codigos, licensePro)
+      }
+    : checkEngine;
+
+  const moreFaultsMessage = checkEngine && checkEngine.codigos 
+    ? getMoreFaultsMessage(filteredCheckEngine?.codigos?.length || 0, checkEngine.codigos.length, licensePro)
+    : null;
+
   return !isAuthorized ? null : (
     <>
       {/* ===== OVERLAY PRIMERA CONEXIÓN (APAGADO → CONTACTO) ===== */}
@@ -475,9 +466,22 @@ function Home({ licensePro, licenseKey, deviceId, onUnauthorized }) {
         </div>
       )}
       <div className="duo-bg">
-      <h1 className="duo-title">
-        {tipoConexion === 'Simulador OBD-II (debug)' ? 'Simulador OBD-II Engine' : 'OBD-II Engine'}
-      </h1>
+      <div style={{ display: 'flex', alignItems: 'center', gap: '12px', position: 'relative' }}>
+        <h1 className="duo-title">
+          {tipoConexion === 'Simulador OBD-II (debug)' ? 'Simulador OBD-II Engine' : 'OBD-II Engine'}
+        </h1>
+        <div style={{
+          backgroundColor: '#9e9e9e',
+          color: 'white',
+          padding: '6px 14px',
+          borderRadius: '20px',
+          fontSize: '12px',
+          fontWeight: 'bold',
+          letterSpacing: '0.5px'
+        }}>
+          {licensePro ? 'PRO' : 'FREE'}
+        </div>
+      </div>
 
       <>
           {datos.vehiculo && (
@@ -509,13 +513,15 @@ function Home({ licensePro, licenseKey, deviceId, onUnauthorized }) {
             <SensoresAvanzadosPage
               datos={datos}
               onVolver={() => setPaginaSensores(false)}
+              isPro={licensePro}
+              onActivateLicense={() => setShowActivation(true)}
             />
           )}
 
           {/* ===== CHECK ENGINE PAGE (pantalla completa) ===== */}
           {paginaCE && (
             <CheckEnginePage
-              checkEngine={checkEngine}
+              checkEngine={filteredCheckEngine}
               escaneando={escaneando}
               borrando={borrando}
               expandedCodes={expandedCodes}
@@ -523,6 +529,7 @@ function Home({ licensePro, licenseKey, deviceId, onUnauthorized }) {
               handleEscanear={handleEscanear}
               handleBorrar={handleBorrar}
               onVolver={() => setPaginaCE(false)}
+              moreFaultsMessage={moreFaultsMessage}
             />
           )}
 
@@ -758,7 +765,7 @@ function Home({ licensePro, licenseKey, deviceId, onUnauthorized }) {
             {servidorOnline && (
               <div
                 className="ce-stat-card"
-                onClick={() => setPaginaSensores(true)}
+                onClick={() => handleSensores()}
               >
                 <span className="ce-stat-icon">
                   <svg viewBox="0 0 40 48" fill="none" xmlns="http://www.w3.org/2000/svg"
@@ -780,7 +787,7 @@ function Home({ licensePro, licenseKey, deviceId, onUnauthorized }) {
                 <span className="ce-stat-count-ok" style={{ color: '#ffd740' }}>12 sensores</span>
                 <button
                   className="ce-stat-scan-btn ce-stat-scan-btn-blue"
-                  onClick={e => { e.stopPropagation(); setPaginaSensores(true); }}
+                  onClick={e => { e.stopPropagation(); handleSensores(); }}
                 >
                   Ver sensores
                 </button>
@@ -831,6 +838,64 @@ function Home({ licensePro, licenseKey, deviceId, onUnauthorized }) {
           onConfirmar={executeBorrado}
           onCancelar={() => setModalBorrar(false)}
         />
+      )}
+
+      {/* 🆕 ===== MODAL ACTIVACIÓN PRO ===== */}
+      {showActivation && (
+        <div style={{
+          position: 'fixed',
+          top: 0,
+          left: 0,
+          right: 0,
+          bottom: 0,
+          backgroundColor: 'rgba(0,0,0,0.8)',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          zIndex: 9999
+        }}>
+          <button
+            onClick={() => setShowActivation(false)}
+            style={{
+              position: 'absolute',
+              top: '20px',
+              left: '20px',
+              backgroundColor: '#42a5f5',
+              border: 'none',
+              color: 'white',
+              fontSize: '14px',
+              cursor: 'pointer',
+              padding: '10px 18px',
+              borderRadius: '6px',
+              fontWeight: '500',
+              zIndex: 10000
+            }}
+          >
+            ← Volver
+          </button>
+          <div style={{
+            backgroundColor: 'white',
+            borderRadius: '12px',
+            maxWidth: '500px',
+            width: '90%',
+            maxHeight: '90vh',
+            overflow: 'auto',
+            position: 'relative'
+          }}>
+            <LicenseActivation
+              onActivate={onActivateLicense}
+              onTransfer={onTransferLicense}
+              deviceId={deviceId}
+              licenseKey={licenseKey}
+              isLoading={false}
+              onActivationSuccess={() => {
+                setShowActivation(false);
+                onSuccessActivation && onSuccessActivation();
+              }}
+              onClose={() => setShowActivation(false)}
+            />
+          </div>
+        </div>
       )}
 
     </>

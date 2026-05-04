@@ -231,7 +231,7 @@ function SensorCard({ sensor, datos }) {
 /* ─────────────────────────────────────────────────
    Componente principal
 ───────────────────────────────────────────────── */
-export default function SensoresAvanzadosPage({ datos, onVolver }) {
+export default function SensoresAvanzadosPage({ datos, onVolver, isPro = false, onActivateLicense }) {
   const [categoriaActiva, setCategoriaActiva] = useState(CATEGORIAS[0].id);
   const [vista, setVista] = useState('categorias'); // 'categorias' | 'detalle'
   const disponibles = SENSORES.filter(s => datos[s.pid]?.valor != null);
@@ -241,6 +241,20 @@ export default function SensoresAvanzadosPage({ datos, onVolver }) {
   const categoriasDisponibles = CATEGORIAS.filter(cat =>
     SENSORES.some(s => s.categoria === cat.id)
   );
+
+  // 🔒 Manejar click en categoría con validación de PRO
+  const handleCategoryClick = (catId) => {
+    if (!isPro) {
+      // Si no es PRO, mostrar modal de activación
+      if (onActivateLicense) {
+        onActivateLicense();
+      }
+      return;
+    }
+    // Si es PRO, abrir categoría
+    setCategoriaActiva(catId);
+    setVista('detalle');
+  };
 
   return (
     <div className="sa-page-bg">
@@ -299,11 +313,30 @@ export default function SensoresAvanzadosPage({ datos, onVolver }) {
                       <button
                         key={cat.id}
                         className="sa-cat-card"
-                        onClick={() => {
-                          setCategoriaActiva(cat.id);
-                          setVista('detalle');
+                        style={{
+                          position: 'relative',
+                          opacity: !isPro ? 0.6 : 1,
+                          cursor: !isPro ? 'not-allowed' : 'pointer'
                         }}
+                        onClick={() => handleCategoryClick(cat.id)}
                       >
+                        {!isPro && (
+                          <div style={{
+                            position: 'absolute',
+                            top: '8px',
+                            left: '8px',
+                            backgroundColor: '#0f2944',
+                            border: '1px solid #42a5f5',
+                            padding: '3px 8px',
+                            borderRadius: '10px',
+                            fontSize: '9px',
+                            fontWeight: '700',
+                            color: '#42a5f5',
+                            zIndex: 10
+                          }}>
+                            🔒 PRO
+                          </div>
+                        )}
                         <div className="sa-cat-header">
                           <span className="sa-cat-icon">{cat.icon}</span>
                           <span className="sa-cat-title">{cat.id}</span>

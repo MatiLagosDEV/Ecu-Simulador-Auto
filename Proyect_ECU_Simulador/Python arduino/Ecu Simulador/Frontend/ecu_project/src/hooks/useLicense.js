@@ -78,9 +78,19 @@ function canUseOffline() {
 }
 
 export function useLicense() {
-  const [status, setStatus] = useState("LOADING");  // LOADING | FREE | PRO | INVALID | NO_LICENSE
+  // 🔥 Limpiar inconsistencias al inicializar
+  const storedLicenseKey = localStorage.getItem("license_key");
+  if (!storedLicenseKey) {
+    // Si NO hay license_key, limpiar todos los datos de PRO
+    localStorage.removeItem("is_pro_cached");
+    localStorage.removeItem("device_id_cached");
+    localStorage.removeItem("last_validation");
+    localStorage.removeItem("pc_fingerprint");
+  }
+
+  const [status, setStatus] = useState("FREE");  // 🆕 Por defecto FREE (no bloquea app)
   const [isPro, setIsPro] = useState(false);
-  const [licenseKey, setLicenseKey] = useState(localStorage.getItem("license_key") || null);
+  const [licenseKey, setLicenseKey] = useState(storedLicenseKey || null);
   const [deviceId, setDeviceId] = useState(localStorage.getItem("device_id") || generateDeviceId());
   const [lastValidated, setLastValidated] = useState(localStorage.getItem("last_validated") || null);
   const [error, setError] = useState(null);
@@ -98,8 +108,9 @@ export function useLicense() {
 
   // Validar licencia (llamada periódicamente)
   const validateLicense = useCallback(async () => {
+    // 🆕 Si NO hay licencia → usar modo FREE (no bloquear app)
     if (!licenseKey) {
-      setStatus("NO_LICENSE");
+      setStatus("FREE");
       setIsPro(false);
       return;
     }
@@ -110,8 +121,10 @@ export function useLicense() {
 
       if (result.valid) {
         // ✅ Validación exitosa
-        setStatus(result.is_pro ? "PRO" : "FREE");
-        setIsPro(result.is_pro);
+        // 🔥 isPro solo si license_key existe Y backend dice que es pro
+        const shouldBePro = licenseKey && result.is_pro;
+        setStatus(shouldBePro ? "PRO" : "FREE");
+        setIsPro(shouldBePro);
         setError(null);
         
         // Guardar datos de validación (para modo offline)
@@ -120,11 +133,11 @@ export function useLicense() {
         
         setLastValidated(new Date().toISOString());
         localStorage.setItem("last_validation", nowTimestamp);
-        localStorage.setItem("is_pro_cached", result.is_pro ? "true" : "false");
+        localStorage.setItem("is_pro_cached", shouldBePro ? "true" : "false");
         localStorage.setItem("device_id_cached", deviceId);
         localStorage.setItem("pc_fingerprint", pcFingerprint);
         
-        console.log(`✅ Licencia validada exitosamente. PRO=${result.is_pro}, Fingerprint=${pcFingerprint.substring(0, 8)}`);
+        console.log(`✅ Licencia validada exitosamente. PRO=${shouldBePro}, Fingerprint=${pcFingerprint.substring(0, 8)}`);
       } else {
         // 🔴 Licencia inválida o transferida
         setStatus("INVALID");
@@ -145,10 +158,12 @@ export function useLicense() {
         
         // Validar coherencia: device_id debe coincidir
         if (cachedDeviceId === deviceId) {
-          setStatus(cachedIsPro ? "PRO" : "FREE");
-          setIsPro(cachedIsPro);
+          // 🔥 isPro solo si license_key existe Y caché dice pro
+          const shouldBePro = licenseKey && cachedIsPro;
+          setStatus(shouldBePro ? "PRO" : "FREE");
+          setIsPro(shouldBePro);
           setError(null);
-          console.log(`🌐 MODO OFFLINE: usando licencia validada hace ${diffDays.toFixed(1)} días`);
+          console.log(`🌐 MODO OFFLINE: usando licencia validada hace ${diffDays.toFixed(1)} días (PRO=${shouldBePro})`);
         } else {
           // Device cambió: no permitir offline
           setStatus("INVALID");
@@ -238,7 +253,7 @@ export function useLicense() {
   // Remover licencia (usuario elige desactivar)
   const removeLicense = useCallback(() => {
     setLicenseKey(null);
-    setStatus("NO_LICENSE");
+    setStatus("FREE");  // 🆕 Volver a FREE (no bloquea app)
     setIsPro(false);
     localStorage.removeItem("license_key");
     localStorage.removeItem("last_validated");
@@ -246,14 +261,26 @@ export function useLicense() {
     localStorage.removeItem("is_pro_cached");
     localStorage.removeItem("device_id_cached");
     localStorage.removeItem("pc_fingerprint");
-    console.log("🗑️ Licencia removida completamente");
+    console.log("🗑️ Licencia removida, volviendo a modo FREE");
   }, []);
 
   // Validar al iniciar y cada 24 horas
   useEffect(() => {
-    // 🔥 Si es LOADING y tenemos licenseKey, intentar validar
-    // (fallará si sin internet, pero fallback a offline si < 24h)
-    if (status === "LOADING" && licenseKey) {
+    // 🔥 GARANTIZAR CONSISTENCIA: isPro solo puede ser true si hay license_key
+    if (!licenseKey) {
+      setIsPro(false);
+      setStatus("FREE");
+      // Limpiar caché si no hay licencia
+      localStorage.removeItem("is_pro_cached");
+      localStorage.removeItem("device_id_cached");
+      localStorage.removeItem("last_validation");
+      localStorage.removeItem("pc_fingerprint");
+      return;
+    }
+
+    // 🆕 Si tenemos licenseKey, intentar validar online
+    // Si no hay licencia, simplemente estará en estado FREE
+    if (licenseKey) {
       validateLicense();
     }
 
@@ -269,9 +296,9 @@ export function useLicense() {
 
   return {
     // Estados
-    status,            // LOADING | FREE | PRO | INVALID | NO_LICENSE
+    status,            // FREE (defecto sin licencia) | PRO (con licencia válida) | INVALID (licencia inválida/expirada)
     isPro,             // true si es PRO
-    licenseKey,        // Clave actual
+    licenseKey,        // Clave actual (null si no hay licencia)
     deviceId,          // Device ID único
     lastValidated,     // Timestamp última validación
     error,             // Mensaje de error si hay
@@ -283,12 +310,9 @@ export function useLicense() {
     validateLicense,   // () => Promise<void>
     removeLicense      // () => void
     
-    // 🌐 MODO OFFLINE + ANTI-PIRATERÍA:
-    // - Offline permitido: 7 días desde última validación exitosa
-    // - Fingerprint del PC: detecta cambios de hardware
-    // - Si > 7 días O cambió PC → requiere internet
-    // - Si se comparte key → el otro device fallará en validación
-    // - Backend detecta multi-uso cuando intente validar desde otro device
+    // 🆕 MODO FREEMIUM:
+    // - Sin licencia: status="FREE", isPro=false → app completamente funcional
+    // - Con licencia: validar, caché offline 7 días, anti-piratería
   };
 }
 

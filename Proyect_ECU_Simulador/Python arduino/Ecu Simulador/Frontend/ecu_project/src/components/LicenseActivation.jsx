@@ -5,7 +5,7 @@ import "../styles/LicenseActivation.css";
  * Componente de Activación de Licencia
  * Muestra un modal/pantalla para que el usuario ingrese su clave PRO
  */
-export default function LicenseActivation({ onActivate, onTransfer, deviceId, licenseKey: initialLicenseKey, isLoading, onActivationSuccess }) {
+export default function LicenseActivation({ onActivate, onTransfer, deviceId, licenseKey: initialLicenseKey, isLoading, onActivationSuccess, onClose }) {
   const [licenseKey, setLicenseKey] = useState(initialLicenseKey || "");
   const [error, setError] = useState("");
   const [success, setSuccess] = useState(false);
