@@ -1,1 +1,39 @@
 pyinstaller --onefile main.py
+
+py server.py (lanzar obd2)
+
+(lanzar licencias)
+python -m uvicorn app.main:app --reload --port 8000
+
+
+http://localhost:8000/admin/generate-license
+
+{
+  "is_pro": true,
+  "payment_method": "prueba"
+}
+
+
+http://localhost:8000/license/activate
+
+{
+  "license_key": "FJlDRAY23LER8dfHBBK60do3HVL4FlA3",
+  "device_id": "device_001"
+}
+
+
+http://localhost:8000/license/transfer
+
+
+{
+  "license_key": "28ER15KD0KT3Z4N6R9FICONW5SLIL24A",
+  "device_id_nuevo": "device_002",
+  "reason": "Cambio de computadora"
+}
+
+http://localhost:8000/license/status
+
+{
+  "license_key": "C1FGvx0P2mWvM0lcLumgQVlkBFMMJd7k",
+  "device_id": "device_002"
+}

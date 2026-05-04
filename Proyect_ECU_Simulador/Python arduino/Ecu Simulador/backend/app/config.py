@@ -11,7 +11,7 @@ class Settings(BaseSettings):
     # API
     API_HOST: str = "0.0.0.0"
     API_PORT: int = 8000  # FastAPI en 8000, server.py OBD en 5000
-    DEBUG: bool = True  # Habilitado para desarrollo/testing
+    DEBUG: bool = True  # Temporal: generar licencia para testing
     
     # Licencias
     LICENSE_KEY_LENGTH: int = 32

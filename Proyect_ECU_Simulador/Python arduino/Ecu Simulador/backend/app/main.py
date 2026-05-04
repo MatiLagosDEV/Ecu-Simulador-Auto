@@ -1,6 +1,7 @@
 from fastapi import FastAPI, Depends, HTTPException, status
 from fastapi.middleware.cors import CORSMiddleware
 from sqlalchemy.orm import Session
+from sqlalchemy.exc import IntegrityError
 from datetime import datetime
 import secrets
 import string
@@ -22,6 +23,26 @@ logging.basicConfig(
     format='%(asctime)s - %(name)s - %(levelname)s - %(message)s'
 )
 logger = logging.getLogger(__name__)
+
+
+# ════════════════════════════════════════════════════════
+# GENERADOR DE LICENSE KEYS
+# ════════════════════════════════════════════════════════
+
+def generar_license_key() -> str:
+    """
+    Genera una clave de licencia segura y legible.
+    
+    Formato: XXXXXX-XXXXXX-XXXXXX-XXXXXX (24 caracteres + 3 guiones = 27)
+    Caracteres: A-Z + 0-9 (36^24 combinaciones posibles = extremadamente improbable repetir)
+    
+    Ejemplo: A9F3KD-82JDK2-9XK2LS-0PQLA1
+    """
+    chars = string.ascii_uppercase + string.digits
+    return "-".join(
+        "".join(secrets.choice(chars) for _ in range(6))
+        for _ in range(4)
+    )
 
 # Crear tablas si no existen
 Base.metadata.create_all(bind=engine)
@@ -235,7 +256,7 @@ def admin_generate_license(
     """
     SOLO PARA TESTING/DEVELOPMENT.
     
-    Genera una licencia de prueba.
+    Genera una licencia de prueba con reintento automático en caso de colisión.
     
     ⚠️ Solo disponible si DEBUG=True en .env
     ⚠️ ELIMINAR o restringir en producción
@@ -247,27 +268,43 @@ def admin_generate_license(
             detail="Endpoint solo disponible en modo DEBUG"
         )
     
-    try:
-        # Generar clave aleatoria segura
-        chars = string.ascii_letters + string.digits
-        license_key = ''.join(secrets.choice(chars) for _ in range(32))
-        
-        license_obj = crud.create_license(db, license_key, request.is_pro, request.payment_method)
-        
-        logger.info(f"Licencia de prueba generada: {license_key}, is_pro={request.is_pro}")
-        
-        return {
-            "license_key": license_key,
-            "is_pro": request.is_pro,
-            "message": "Licencia de prueba generada"
-        }
+    MAX_REINTENTOS = 5
     
-    except Exception as e:
-        logger.error(f"Error al generar licencia de prueba: {str(e)}")
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail="Error al generar licencia"
-        )
+    for intento in range(MAX_REINTENTOS):
+        try:
+            # Generar nueva clave
+            license_key = generar_license_key()
+            
+            # Intentar crear (puede fallar por UNIQUE constraint)
+            license_obj = crud.create_license(db, license_key, request.is_pro, request.payment_method)
+            
+            logger.info(f"Licencia generada exitosamente: {license_key}, is_pro={request.is_pro}")
+            
+            return {
+                "license_key": license_key,
+                "is_pro": request.is_pro,
+                "message": "Licencia generada"
+            }
+        
+        except IntegrityError as e:
+            db.rollback()
+            if intento < MAX_REINTENTOS - 1:
+                logger.debug(f"Colisión de key detectada (intento {intento + 1}/{MAX_REINTENTOS}), reintentando...")
+                continue
+            else:
+                logger.error(f"Colisión persistente después de {MAX_REINTENTOS} intentos")
+                raise HTTPException(
+                    status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                    detail="Error al generar licencia: colisión persistente en BD"
+                )
+        
+        except Exception as e:
+            db.rollback()
+            logger.error(f"Error al generar licencia: {str(e)}")
+            raise HTTPException(
+                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                detail=f"Error al generar licencia: {str(e)}"
+            )
 
 
 if __name__ == "__main__":

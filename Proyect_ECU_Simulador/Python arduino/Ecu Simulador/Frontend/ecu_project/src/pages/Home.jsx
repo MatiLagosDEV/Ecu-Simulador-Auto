@@ -75,8 +75,10 @@ function getCodeMeta(code) {
 }
 // ──────────────────────────────────────────────────────────────────────────── //
 
-function Home() {
+function Home({ licensePro, licenseKey, deviceId, onUnauthorized }) {
   const [datos, setDatos] = useState(DATOS_VACIOS);
+  const [isAuthorized, setIsAuthorized] = useState(false);
+  const [authError, setAuthError] = useState(null);
   const [estadoMotor, setEstadoMotor] = useState('APAGADO'); // 'APAGADO' | 'CONTACTO' | 'ENCENDIDO'
   const [tipoConexion, setTipoConexion] = useState(null); // 'USB' | 'Bluetooth' | 'Serial'
   const [servidorOnline, setServidorOnline] = useState(false);
@@ -163,6 +165,51 @@ function Home() {
     avanzar();
   };
 
+  // ✅ VALIDACIÓN DE BACKEND AL MONTAR
+  // Esto es crítico: aunque hackeen el frontend, el backend siempre valida
+  useEffect(() => {
+    const validarLicenciaConBackend = async () => {
+      try {
+        const response = await fetch('http://127.0.0.1:8000/license/status', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            license_key: licenseKey,
+            device_id: deviceId
+          })
+        });
+
+        if (!response.ok) {
+          throw new Error('No autorizado');
+        }
+
+        const data = await response.json();
+
+        if (data.valid) {
+          // ✅ Licencia válida - permitir acceso
+          setIsAuthorized(true);
+          setAuthError(null);
+        } else {
+          // ❌ Licencia inválida - bloquear acceso
+          setIsAuthorized(false);
+          setAuthError(data.message || 'Licencia no válida');
+          if (onUnauthorized) {
+            setTimeout(() => onUnauthorized(), 1000);
+          }
+        }
+      } catch (err) {
+        console.error('Error validando licencia:', err);
+        setIsAuthorized(false);
+        setAuthError('Error validando licencia');
+        if (onUnauthorized) {
+          setTimeout(() => onUnauthorized(), 1500);
+        }
+      }
+    };
+
+    validarLicenciaConBackend();
+  }, [licenseKey, deviceId, onUnauthorized]);
+
   // Mensajes rotativos overlay ciclo arranque
   useEffect(() => {
     if (overlayArranqueVisible) {
@@ -177,7 +224,10 @@ function Home() {
   }, [overlayArranqueVisible]);
 
   // ─── Polling de datos OBD-II con backoff exponencial ───
+  // ✅ NOTA: El polling SOLO comienza después de validar licencia
   useEffect(() => {
+    if (!isAuthorized) return; // No hacer polling si no está autorizado
+
     let activo = true;
     let timeoutId = null;
     let intervalo = 500;          // ms base cuando hay conexión
@@ -237,7 +287,7 @@ function Home() {
 
     fetchDatos();
     return () => { activo = false; clearTimeout(timeoutId); };
-  }, []);
+  }, [isAuthorized]);
 
   const PASOS_ESCANEO = [
     { pct: 0,   msg: 'Iniciando diagnóstico OBD-II...' },
@@ -310,7 +360,8 @@ function Home() {
   // Abre el modal de confirmación en lugar de borrar directamente
   const handleBorrar = () => setModalBorrar(true);
 
-  return (
+  // ✅ ESTRUCTURA CONDICIONAL EN EL JSX (sin early return en el cuerpo del componente)
+  return !isAuthorized ? null : (
     <>
       {/* ===== OVERLAY PRIMERA CONEXIÓN (APAGADO → CONTACTO) ===== */}
       {overlayConexionVisible && (

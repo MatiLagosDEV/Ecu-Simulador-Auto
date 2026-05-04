@@ -9,7 +9,7 @@
  * - LOADING: Validando...
  */
 
-const API_BASE = process.env.REACT_APP_LICENSE_API_URL || "http://localhost:8000";
+const API_BASE = import.meta.env.VITE_LICENSE_API_URL || "http://localhost:8000";
 
 export const licenseService = {
   /**
@@ -136,8 +136,9 @@ export const licenseService = {
    * @returns {boolean}
    */
   isValidFormat(licenseKey) {
-    // 32 caracteres alfanuméricos
-    return /^[a-zA-Z0-9]{32}$/.test(licenseKey);
+    // Formato: XXXXXX-XXXXXX-XXXXXX-XXXXXX (27 caracteres)
+    // Caracteres: A-Z, 0-9
+    return /^[A-Z0-9]{6}-[A-Z0-9]{6}-[A-Z0-9]{6}-[A-Z0-9]{6}$/.test(licenseKey.toUpperCase());
   },
 
   /**

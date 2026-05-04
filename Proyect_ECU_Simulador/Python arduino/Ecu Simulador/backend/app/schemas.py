@@ -5,19 +5,19 @@ from datetime import datetime
 
 class LicenseActivateRequest(BaseModel):
     """Request para activar licencia"""
-    license_key: str = Field(..., min_length=30, max_length=32)
+    license_key: str = Field(..., min_length=25, max_length=40)
     device_id: str = Field(..., min_length=1)
 
 
 class LicenseStatusRequest(BaseModel):
     """Request para validar estado"""
-    license_key: str = Field(..., min_length=30, max_length=32)
+    license_key: str = Field(..., min_length=25, max_length=40)
     device_id: str = Field(..., min_length=1)
 
 
 class LicenseTransferRequest(BaseModel):
     """Request para transferir licencia"""
-    license_key: str = Field(..., min_length=30, max_length=32)
+    license_key: str = Field(..., min_length=25, max_length=40)
     device_id_nuevo: str = Field(..., min_length=1)
     razon: Optional[str] = "cambio_pc"
 
