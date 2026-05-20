@@ -315,9 +315,106 @@
 }
 
 /* Responsive */
+@media (max-width: 480px) {
+  .settings-modal {
+    max-width: 95% !important;
+    max-height: 85vh !important;
+  }
+
+  .settings-header {
+    padding: 14px;
+  }
+
+  .settings-header h2 {
+    font-size: 16px;
+  }
+
+  .settings-close {
+    width: 28px;
+    height: 28px;
+    font-size: 20px;
+  }
+
+  .settings-content {
+    padding: 12px;
+  }
+
+  .settings-section {
+    margin-bottom: 16px;
+  }
+
+  .settings-section h3 {
+    font-size: 12px;
+    margin-bottom: 8px;
+  }
+
+  .version-info {
+    font-size: 12px;
+  }
+
+  .version-badge {
+    font-size: 11px;
+    padding: 4px 8px;
+  }
+
+  .btn {
+    font-size: 12px;
+    padding: 10px 12px;
+  }
+
+  .button-group {
+    flex-direction: column;
+    gap: 8px;
+  }
+
+  .button-group .btn {
+    width: 100%;
+  }
+
+  .spinner {
+    width: 32px;
+    height: 32px;
+    border-width: 2px;
+  }
+
+  .status-checking p,
+  .status-downloading p {
+    font-size: 12px;
+  }
+
+  .small-text {
+    font-size: 10px !important;
+  }
+
+  .alert {
+    padding: 10px;
+    margin-bottom: 12px;
+  }
+
+  .alert p {
+    font-size: 12px;
+  }
+
+  .changelog {
+    max-height: 150px;
+    padding: 10px;
+    margin-bottom: 12px;
+  }
+
+  .changelog h4 {
+    font-size: 11px;
+    margin-bottom: 6px;
+  }
+
+  .changelog-content p {
+    font-size: 12px;
+    margin: 3px 0;
+  }
+}
+
 @media (max-width: 600px) {
   .settings-modal {
-    max-width: 95%;
+    max-width: 90%;
   }
 
   .settings-header {
@@ -334,5 +431,34 @@
 
   .button-group .btn {
     width: 100%;
+  }
+}
+
+@media (min-width: 601px) and (max-width: 768px) {
+  .settings-modal {
+    max-width: 85%;
+  }
+
+  .settings-header {
+    padding: 18px;
+  }
+
+  .settings-content {
+    padding: 18px;
+  }
+
+  .settings-section h3 {
+    font-size: 13px;
+  }
+
+  .btn {
+    font-size: 13px;
+    padding: 11px 14px;
+  }
+}
+
+@media (min-width: 769px) {
+  .settings-modal {
+    max-width: 500px;
   }
 }

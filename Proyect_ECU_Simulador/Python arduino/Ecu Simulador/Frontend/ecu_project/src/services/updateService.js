@@ -3,7 +3,7 @@
  * Verifica y gestiona actualizaciones de la aplicación
  */
 
-const VERSION_URL = "https://raw.githubusercontent.com/TU_USUARIO/Proyect_ECU_Simulador/main/version.json";
+const VERSION_URL = "https://raw.githubusercontent.com/MatiLagosDEV/Ecu-Simulador-Auto/main/version.json";
 
 export const updateService = {
   /**

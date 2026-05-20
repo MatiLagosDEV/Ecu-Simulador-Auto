@@ -66,3 +66,53 @@ button:focus-visible {
     background-color: #f9f9f9;
   }
 }
+
+/* RESPONSIVE BASE STYLES */
+
+@media (max-width: 480px) {
+  h1 {
+    font-size: 1.8em;
+  }
+
+  h2 {
+    font-size: 1.4em;
+  }
+
+  h3 {
+    font-size: 1.1em;
+  }
+
+  button {
+    padding: 0.5em 1em;
+    font-size: 0.9em;
+  }
+
+  body {
+    min-width: 100%;
+  }
+}
+
+@media (min-width: 481px) and (max-width: 768px) {
+  h1 {
+    font-size: 2.4em;
+  }
+
+  h2 {
+    font-size: 1.8em;
+  }
+
+  h3 {
+    font-size: 1.3em;
+  }
+
+  button {
+    padding: 0.55em 1.1em;
+    font-size: 0.95em;
+  }
+}
+
+@media (max-height: 600px) {
+  body {
+    min-height: auto;
+  }
+}

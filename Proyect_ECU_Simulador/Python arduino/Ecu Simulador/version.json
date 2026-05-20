@@ -1,6 +1,20 @@
 {
   "version": "1.0.0",
-  "releaseUrl": "https://github.com/TuUsuario/Proyect_ECU_Simulador/releases/download/v1.0.0/ECU-Simulador-1.0.0.exe",
-  "changelog": "# Versión 1.0.0 - Lanzamiento Inicial\n\n## Características\n- ✅ Simulador OBD-II completo\n- ✅ Detección de VIN\n- ✅ Taquómetro y velocímetro\n- ✅ Sistema de licencias PRO\n\n## Plataforma\n- Windows con Electron\n- Backend FastAPI en la nube",
-  "releaseDate": "2026-05-20"
+  "latestVersion": "1.0.0",
+  "releaseDate": "2026-05-20",
+  "downloadUrl": "https://github.com/MatiLagosDEV/Ecu-Simulador-Auto/releases/download/v1.0.0/ECU-Simulador-1.0.0.exe",
+  "changelog": [
+    "Interfaz responsive para todas las pantallas",
+    "Sistema de detección de actualizaciones",
+    "Modal de configuración y versión",
+    "Tema oscuro profesional",
+    "Soporte para múltiples protocolos OBD-II",
+    "Simulador OBD-II completo",
+    "Detección de VIN",
+    "Taquómetro y velocímetro",
+    "Sistema de licencias PRO"
+  ],
+  "minimumVersion": "1.0.0",
+  "critical": false,
+  "releaseNotes": "Versión inicial estable del Simulador OBD-II con interfaz responsive y sistema de actualizaciones automáticas"
 }
