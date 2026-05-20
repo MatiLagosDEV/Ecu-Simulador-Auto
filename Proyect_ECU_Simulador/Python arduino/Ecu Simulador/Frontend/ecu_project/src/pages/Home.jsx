@@ -7,6 +7,8 @@ import SensoresAvanzadosPage from '../components/SensoresAvanzadosPage';
 import ConfirmBorrarModal from '../components/ConfirmBorrarModal';
 import ProtectedFeature from '../components/ProtectedFeature';
 import LicenseActivation from '../components/LicenseActivation';
+import SettingsModal from '../components/SettingsModal';
+import { updateService } from '../services/updateService';
 import { getVisibleFaults, canDeleteFaults, getMoreFaultsMessage } from '../utils/freemiumHelpers';
 import '../styles/duoHome.css';
 
@@ -93,6 +95,8 @@ function Home({ licensePro, licenseKey, deviceId, onActivateLicense, onTransferL
   const [paginaCE, setPaginaCE] = useState(false);
   const [paginaSensores, setPaginaSensores] = useState(false);
   const [showActivation, setShowActivation] = useState(false);  // 🆕 Modal de activación PRO
+  const [showSettings, setShowSettings] = useState(false);  // 🔧 Modal de configuración
+  const [hasUpdate, setHasUpdate] = useState(false);  // 🟢 Badge de actualización disponible
 
   const toggleCode = (code) => setExpandedCodes(prev => {
     const next = new Set(prev);
@@ -253,6 +257,21 @@ function Home({ licensePro, licenseKey, deviceId, onActivateLicense, onTransferL
     fetchDatos();
     return () => { activo = false; clearTimeout(timeoutId); };
   }, [isAuthorized]);
+
+  // Verificar actualizaciones disponibles al montar el componente
+  useEffect(() => {
+    const checkUpdates = async () => {
+      try {
+        const result = await updateService.checkForUpdates();
+        if (result.success && result.hasUpdate) {
+          setHasUpdate(true);
+        }
+      } catch (error) {
+        console.log('Error checking updates:', error);
+      }
+    };
+    checkUpdates();
+  }, []);
 
   const PASOS_ESCANEO = [
     { pct: 0,   msg: 'Iniciando diagnóstico OBD-II...' },
@@ -455,17 +474,61 @@ function Home({ licensePro, licenseKey, deviceId, onActivateLicense, onTransferL
         </div>
       )}
 
-      {servidorOnline && datos.vehiculo && getLogoPorMarca(datos.vehiculo.marca) && (
+      {servidorOnline && datos.vehiculo && datos.vehiculo.marca && (
         <div className="duo-corner-logo-wrap">
           <img
             src={getLogoPorMarca(datos.vehiculo.marca)}
             alt={datos.vehiculo.marca}
             className="duo-corner-logo"
-            onError={e => { e.target.parentElement.style.display = 'none'; }}
           />
         </div>
       )}
       <div className="duo-bg">
+      {/* Botón Configuración (Llave Mecánica) - Esquina Superior Izquierda */}
+      <button
+        onClick={() => setShowSettings(true)}
+        style={{
+          position: 'fixed',
+          top: '30px',
+          left: '30px',
+          background: 'none',
+          border: 'none',
+          cursor: 'pointer',
+          padding: '8px',
+          display: 'flex',
+          flexDirection: 'column',
+          alignItems: 'center',
+          justifyContent: 'center',
+          gap: '4px',
+          transition: 'all 0.3s',
+          zIndex: 100
+        }}
+        onMouseEnter={(e) => e.target.style.transform = 'scale(1.3)'}
+        onMouseLeave={(e) => e.target.style.transform = 'scale(1)'}
+        title="Configuración y Actualizaciones"
+      >
+        <div style={{ position: 'relative', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+          <div style={{ fontSize: '40px' }}>🔧</div>
+          {hasUpdate && (
+            <div style={{
+              position: 'absolute',
+              top: '-2px',
+              right: '-2px',
+              width: '16px',
+              height: '16px',
+              backgroundColor: '#00FF41',
+              borderRadius: '50%',
+              border: '2px solid #00d4ff',
+              boxShadow: '0 0 10px rgba(0, 255, 65, 0.8), 0 0 20px rgba(0, 212, 255, 0.6)',
+              animation: 'pulse 2s infinite'
+            }} />
+          )}
+        </div>
+        <div style={{ fontSize: '10px', color: '#00d4ff', fontWeight: 'bold', textAlign: 'center', width: '60px', lineHeight: '1.2' }}>
+          Configuración
+        </div>
+      </button>
+
       <div style={{ display: 'flex', alignItems: 'center', gap: '12px', position: 'relative' }}>
         <h1 className="duo-title">
           {tipoConexion === 'Simulador OBD-II (debug)' ? 'Simulador OBD-II Engine' : 'OBD-II Engine'}
@@ -898,57 +961,23 @@ function Home({ licensePro, licenseKey, deviceId, onActivateLicense, onTransferL
         </div>
       )}
 
+      {/* Modal de Configuración y Actualizaciones */}
+      {showSettings && (
+        <SettingsModal onClose={() => setShowSettings(false)} />
+      )}
+
     </>
   );
 }
 
 
-// Logo de marca por nombre
+// Texto de marca por nombre (SVG llamativo)
 function getLogoPorMarca(marca) {
-  const slugs = {
-    'Toyota':      'toyota',
-    'Honda':       'honda',
-    'Ford':        'ford',
-    'Chevrolet':   'chevrolet',
-    'Volkswagen':  'volkswagen',
-    'BMW':         'bmw',
-    'Mercedes':    'mercedes-benz',
-    'Mercedes-Benz': 'mercedes-benz',
-    'Audi':        'audi',
-    'Nissan':      'nissan',
-    'Hyundai':     'hyundai',
-    'Kia':         'kia',
-    'Mazda':       'mazda',
-    'Subaru':      'subaru',
-    'Jeep':        'jeep',
-    'Dodge':       'dodge',
-    'Ram':         'ram',
-    'Renault':     'renault',
-    'Peugeot':     'peugeot',
-    'Fiat':        'fiat',
-    'Volvo':       'volvo',
-    'Porsche':     'porsche',
-    'Ferrari':     'ferrari',
-    'Lamborghini': 'lamborghini',
-    'Mitsubishi':  'mitsubishi',
-    'Suzuki':      'suzuki',
-    'Lexus':       'lexus',
-    'Infiniti':    'infiniti',
-    'Acura':       'acura',
-    'Cadillac':    'cadillac',
-    'Buick':       'buick',
-    'Lincoln':     'lincoln',
-    'Alfa Romeo':  'alfa-romeo',
-    'Seat':        'seat',
-    'Skoda':       'skoda',
-    'Chery':       'chery',
-    'Leapmotor':   'leapmotor',
-    'BYD':         'byd',
-    'Geely':       'geely',
-  };
-  const slug = slugs[marca];
-  if (!slug) return '';
-  return `https://raw.githubusercontent.com/filippofilip95/car-logos-dataset/master/logos/optimized/${slug}.png`;
+  if (!marca) return '';
+  
+  const svg = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 200 200"><text x="100" y="110" font-size="36" font-weight="bold" text-anchor="middle" fill="white" font-family="Arial">${marca.substring(0, 8).toUpperCase()}</text></svg>`;
+  
+  return `data:image/svg+xml;base64,${btoa(svg)}`;
 }
 
 // Decodifica RPM tipo "41 0C XX YY"
