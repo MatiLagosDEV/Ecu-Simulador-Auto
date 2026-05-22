@@ -1,0 +1,78 @@
+{
+  "name": "ecu_project",
+  "private": true,
+  "version": "1.0.0-beta",
+  "description": "Simulador de ECU con diagnóstico OBD-II",
+  "author": {
+    "name": "MatiLagosDEV",
+    "email": "matilagos.dev@gmail.com"
+  },
+  "main": "electron/main.js",
+  "homepage": "./",
+  "scripts": {
+    "dev": "vite",
+    "build": "vite build",
+    "lint": "eslint .",
+    "preview": "vite preview",
+    "electron": "electron .",
+    "electron-dev": "npm run build && electron .",
+    "electron-build": "npm run build && electron-builder --publish never",
+    "electron-build-publish": "npm run build && electron-builder --publish always"
+  },
+  "dependencies": {
+    "electron-is-dev": "^3.0.1",
+    "electron-updater": "^6.8.3",
+    "react": "^19.2.0",
+    "react-dom": "^19.2.0"
+  },
+  "devDependencies": {
+    "@eslint/js": "^9.39.1",
+    "@types/react": "^19.2.7",
+    "@types/react-dom": "^19.2.3",
+    "@vitejs/plugin-react": "^5.1.1",
+    "electron": "^42.2.0",
+    "electron-builder": "^26.8.1",
+    "eslint": "^9.39.1",
+    "eslint-plugin-react-hooks": "^7.0.1",
+    "eslint-plugin-react-refresh": "^0.4.24",
+    "globals": "^16.5.0",
+    "vite": "^7.3.1"
+  },
+  "build": {
+    "appId": "com.matilagosdev.ecusimulador",
+    "productName": "OBD-II Engine",
+    "directories": {
+      "output": "dist-electron"
+    },
+    "files": [
+      "dist/**/*",
+      "electron/**/*",
+      "package.json"
+    ],
+    "extraResources": [
+      {
+        "from": "../../backend/OBD2-Simulador",
+        "to": "backend",
+        "filter": ["**/*"]
+      }
+    ],
+    "win": {
+      "icon": "src/assets/OBD-II-Icono.ico",
+      "target": [
+        {
+          "target": "nsis",
+          "arch": ["x64"]
+        }
+      ]
+    },
+    "nsis": {
+      "oneClick": false,
+      "allowToChangeInstallationDirectory": true,
+      "createDesktopShortcut": true,
+      "createStartMenuShortcut": true,
+      "shortcutName": "OBD-II Engine",
+      "installerIcon": "src/assets/OBD-II-Icono.ico",
+      "uninstallerIcon": "src/assets/OBD-II-Icono.ico"
+    }
+  }
+}

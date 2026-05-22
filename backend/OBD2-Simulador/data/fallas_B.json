@@ -1,0 +1,90 @@
+{
+  "B0001": {
+    "d": "Sistema de airbag - circuito del conductor",
+    "r": "Revisar módulo airbag conductor, cableado y espiral de volante"
+  },
+  "B0002": {
+    "d": "Sistema de airbag - circuito del acompañante",
+    "r": "Revisar módulo airbag acompañante, cableado y conector bajo asiento"
+  },
+  "B0010": {
+    "d": "Airbag lateral delantera derecha - circuito abierto",
+    "r": "Revisar airbag lateral derecho, cableado y módulo SRS"
+  },
+  "B0011": {
+    "d": "Airbag lateral delantera izquierda - circuito abierto",
+    "r": "Revisar airbag lateral izquierdo, cableado y módulo SRS"
+  },
+  "B0020": {
+    "d": "Sensor de impacto delantero derecho - falla en el circuito",
+    "r": "Revisar sensor de impacto delantero derecho y cableado"
+  },
+  "B0021": {
+    "d": "Sensor de impacto delantero izquierdo - falla en el circuito",
+    "r": "Revisar sensor de impacto delantero izquierdo y cableado"
+  },
+  "B0051": {
+    "d": "Cinturón de seguridad conductor - pretensor falla circuito",
+    "r": "Revisar pretensor cinturón conductor, conector y módulo SRS"
+  },
+  "B0052": {
+    "d": "Cinturón de seguridad acompañante - pretensor falla circuito",
+    "r": "Revisar pretensor cinturón acompañante, conector y módulo SRS"
+  },
+  "B0100": {
+    "d": "Sistema de climatización - falla general",
+    "r": "Revisar módulo de climatización, actuadores y sensores de temperatura"
+  },
+  "B0101": {
+    "d": "Sensor de temperatura interior - falla en el circuito",
+    "r": "Revisar sensor temperatura habitáculo, cableado y módulo clima"
+  },
+  "B0200": {
+    "d": "Cierre centralizado - circuito motor puerta conductor",
+    "r": "Revisar motor de cierre puerta conductor y cableado"
+  },
+  "B0201": {
+    "d": "Cierre centralizado - circuito motor puerta acompañante",
+    "r": "Revisar motor de cierre puerta acompañante y cableado"
+  },
+  "B1000": {
+    "d": "Módulo de control de carrocería - falla interna",
+    "r": "Revisar módulo BCM, alimentación y tierra"
+  },
+  "B1001": {
+    "d": "Módulo de control de carrocería - opción de configuración incorrecta",
+    "r": "Reprogramar o reconfigurar el módulo BCM"
+  },
+  "B1004": {
+    "d": "Módulo de control de carrocería - voltaje bajo de batería",
+    "r": "Revisar batería, alternador y conexiones de tierra del BCM"
+  },
+  "B1200": {
+    "d": "Sistema de iluminación interior - falla de circuito",
+    "r": "Revisar fusibles, módulo BCM y cableado de luces interiores"
+  },
+  "B1300": {
+    "d": "Espejo retrovisor eléctrico - falla de motor izquierdo",
+    "r": "Revisar motor espejo izquierdo, switch y cableado"
+  },
+  "B1301": {
+    "d": "Espejo retrovisor eléctrico - falla de motor derecho",
+    "r": "Revisar motor espejo derecho, switch y cableado"
+  },
+  "B2100": {
+    "d": "Inmovilizador - no se reconoce la llave transponder",
+    "r": "Revisar llave con chip, antena inmovilizador y módulo BCM"
+  },
+  "B2101": {
+    "d": "Inmovilizador - señal de llave incorrecta",
+    "r": "Reprogramar llave transponder, revisar módulo inmovilizador"
+  },
+  "B2200": {
+    "d": "Panel de instrumentos - falla de comunicación",
+    "r": "Revisar conexión CAN Bus del clúster y alimentación del panel"
+  },
+  "B2300": {
+    "d": "Sistema de audio - falla de comunicación con módulo",
+    "r": "Revisar módulo de audio, conexiones y bus de datos"
+  }
+}

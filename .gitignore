@@ -1,0 +1,67 @@
+# ============================================
+# FRONTEND (React + Vite + Electron)
+# ============================================
+frontend/ecu_project/node_modules/
+frontend/ecu_project/dist/
+frontend/ecu_project/dist-electron/
+frontend/ecu_project/.vite/
+frontend/ecu_project/.env.local
+frontend/ecu_project/*.log
+
+# ============================================
+# BACKEND (Python + Flask + OBD2)
+# ============================================
+backend/.venv/
+backend/venv/
+backend/env/
+backend/.env
+backend/*.db
+backend/OBD2-Simulador/__pycache__/
+backend/OBD2-Simulador/*.pyc
+backend/OBD2-Simulador/*.pyo
+backend/OBD2-Simulador/build/
+backend/OBD2-Simulador/dist/
+backend/OBD2-Simulador/*.spec
+backend/OBD2-Simulador/obd2_licencias.db
+
+# ============================================
+# ARCHIVOS DOCUMENTACIÓN (Notas internas)
+# ============================================
+*.md
+!README.md
+
+# ============================================
+# ARCHIVOS DE CONFIGURACIÓN (Ignorar globales)
+# ============================================
+version.json
+
+# ============================================
+# SISTEMA OPERATIVO & EDITOR
+# ============================================
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+Thumbs.db
+
+# ============================================
+# IDE & EDITORES
+# ============================================
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+.project
+.classpath
+*.sublime-workspace
+
+# ============================================
+# ARCHIVOS TEMPORALES
+# ============================================
+*.tmp
+*.temp
+.cache/
+dist-old/

@@ -1,0 +1,118 @@
+{
+  "U0001": {
+    "d": "Bus CAN de alta velocidad - falla de comunicación",
+    "r": "Revisar cableado CAN Bus (CAN H / CAN L), terminaciones y módulos conectados"
+  },
+  "U0002": {
+    "d": "Bus CAN de alta velocidad - funcionamiento",
+    "r": "Revisar integridad del bus CAN, resistencias de terminación (120 Ω cada extremo)"
+  },
+  "U0010": {
+    "d": "Bus CAN de velocidad media - falla de comunicación",
+    "r": "Revisar CAN Bus velocidad media, módulo de carrocería BCM y cableado"
+  },
+  "U0020": {
+    "d": "Bus LIN - falla de comunicación",
+    "r": "Revisar bus LIN, módulos conectados (sensores de lluvia, espejos, etc.)"
+  },
+  "U0073": {
+    "d": "Control del bus de comunicación A - desactivado",
+    "r": "Revisar alimentación y tierra de todos los módulos, CAN Bus principal"
+  },
+  "U0100": {
+    "d": "Pérdida de comunicación con el módulo de control del motor (ECM/PCM)",
+    "r": "Revisar CAN Bus, alimentación y tierra de la ECM, conector de 16 pines OBD2"
+  },
+  "U0101": {
+    "d": "Pérdida de comunicación con el módulo de control de transmisión (TCM)",
+    "r": "Revisar CAN Bus, alimentación y tierra del TCM, cableado entre ECM y TCM"
+  },
+  "U0109": {
+    "d": "Pérdida de comunicación con el módulo de bomba de combustible",
+    "r": "Revisar módulo FPDM, CAN Bus y cableado de la bomba de combustible"
+  },
+  "U0110": {
+    "d": "Pérdida de comunicación con el módulo de control del motor eléctrico",
+    "r": "Revisar comunicación CAN Bus con el inversor/módulo motor eléctrico"
+  },
+  "U0121": {
+    "d": "Pérdida de comunicación con el módulo de control ABS",
+    "r": "Revisar módulo ABS/EBCM, CAN Bus, alimentación y tierra"
+  },
+  "U0122": {
+    "d": "Pérdida de comunicación con el módulo de control del clima",
+    "r": "Revisar módulo HVAC, conector y bus de datos"
+  },
+  "U0126": {
+    "d": "Pérdida de comunicación con el módulo del sensor de ángulo de dirección",
+    "r": "Revisar sensor SAS, CAN Bus y módulo ESP"
+  },
+  "U0131": {
+    "d": "Pérdida de comunicación con el módulo de dirección asistida eléctrica (EPS)",
+    "r": "Revisar módulo EPS, CAN Bus y cableado"
+  },
+  "U0140": {
+    "d": "Pérdida de comunicación con el módulo de control de carrocería (BCM)",
+    "r": "Revisar módulo BCM, CAN Bus, alimentación y tierra"
+  },
+  "U0141": {
+    "d": "Pérdida de comunicación con el BCM auxiliar",
+    "r": "Revisar BCM auxiliar, bus de datos y cableado"
+  },
+  "U0142": {
+    "d": "Pérdida de comunicación con el módulo de control de carrocería B",
+    "r": "Revisar segundo BCM, CAN Bus y alimentación"
+  },
+  "U0151": {
+    "d": "Pérdida de comunicación con el módulo de control SRS (airbags)",
+    "r": "Revisar módulo SRS, CAN Bus y cableado"
+  },
+  "U0155": {
+    "d": "Pérdida de comunicación con el panel de instrumentos (clúster)",
+    "r": "Revisar clúster de instrumentos, CAN Bus y alimentación"
+  },
+  "U0159": {
+    "d": "Pérdida de comunicación con el módulo de control de estacionamiento",
+    "r": "Revisar módulo de sensores de parking, CAN Bus y sensores"
+  },
+  "U0164": {
+    "d": "Pérdida de comunicación con el módulo de audio/radio",
+    "r": "Revisar módulo de audio, CAN Bus y alimentación"
+  },
+  "U0168": {
+    "d": "Pérdida de comunicación con el módulo de inmovilizador del vehículo",
+    "r": "Revisar módulo inmovilizador, CAN Bus y llave transponder"
+  },
+  "U0184": {
+    "d": "Pérdida de comunicación con el módulo de radio",
+    "r": "Revisar módulo radio, bus de datos y alimentación"
+  },
+  "U0231": {
+    "d": "Pérdida de comunicación con el módulo de control de iluminación trasera",
+    "r": "Revisar módulo luces traseras, CAN Bus y cableado"
+  },
+  "U0300": {
+    "d": "Incompatibilidad de software del módulo interno",
+    "r": "Verificar versiones de software de todos los módulos, reprogramar si es necesario"
+  },
+  "U0401": {
+    "d": "Datos no válidos recibidos del módulo de control del motor (ECM/PCM)",
+    "r": "Revisar ECM, CAN Bus y posibles fallas en la señal enviada"
+  },
+  "U0402": {
+    "d": "Datos no válidos recibidos del módulo de control de transmisión (TCM)",
+    "r": "Revisar TCM, CAN Bus y señales de salida del módulo"
+  },
+  "U0415": {
+    "d": "Datos no válidos recibidos del módulo de control ABS",
+    "r": "Revisar módulo ABS, CAN Bus y señales de sensores de rueda"
+  },
+  "U0422": {
+    "d": "Datos no válidos recibidos del módulo de control de carrocería (BCM)",
+    "r": "Revisar BCM, CAN Bus y configuración del módulo"
+  },
+  "U1000": {
+    "d": "Bus CAN - falla de comunicación (código de fabricante)",
+    "r": "Revisar CAN Bus, referirse al manual del fabricante para detalles específicos"
+  }
+}
