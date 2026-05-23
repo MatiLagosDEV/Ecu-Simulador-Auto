@@ -47,14 +47,29 @@ except ImportError:  # Si no está instalado, seguiremos con simulación simple
 
 if not MODO_SIMULADOR:
     # Importación normal: usa la ECU real/ELM327 vía conexion_ecu
-    from conexion_ecu import (
-        ecu,
-        enviar_pid as _enviar_pid_hw,
-        leer_dtc as _leer_dtc_hw,
-        borrar_codigos as _borrar_arduino_hw,
-    )
-else:
-    # En modo simulador no abrimos ningún puerto serie
+    try:
+        # Importación normal: usa la ECU real/ELM327 vía conexion_ecu
+        from conexion_ecu import (
+            ecu,
+            enviar_pid as _enviar_pid_hw,
+            leer_dtc as _leer_dtc_hw,
+            borrar_codigos as _borrar_arduino_hw,
+        )
+        # Verificamos si la conexión es válida
+        if ecu is None:
+            raise Exception("No se pudo inicializar la ECU")
+            
+    except Exception as e:
+        # Si falla, imprimimos el error y activamos el modo simulador automáticamente
+        print(f"Error detectado: {e}. Activando MODO_SIMULADOR.")
+        MODO_SIMULADOR = True 
+        ecu = None
+        _enviar_pid_hw = None
+        _leer_dtc_hw = None
+        _borrar_arduino_hw = None
+
+# Si MODO_SIMULADOR es True (o se activó arriba), inicializamos las variables en None
+if MODO_SIMULADOR:
     ecu = None
     _enviar_pid_hw = None
     _leer_dtc_hw = None
@@ -1385,4 +1400,4 @@ def protocolo_escanear():
     return jsonify(resultado)
 
 if __name__ == '__main__':
-    app.run(host='0.0.0.0', port=5000, threaded=False, processes=1)
+    app.run(host='127.0.0.1', port=5000, threaded=False, processes=1)

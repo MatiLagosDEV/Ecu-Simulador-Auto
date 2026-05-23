@@ -9,7 +9,7 @@ class Settings(BaseSettings):
     DATABASE_URL: str = "sqlite:///./obd2_licencias.db"
     
     # API
-    API_HOST: str = "0.0.0.0"
+    API_HOST: str = "127.0.0.1"
     API_PORT: int = 8000  # FastAPI en 8000, server.py OBD en 5000
     DEBUG: bool = True  # Temporal: generar licencia para testing
     

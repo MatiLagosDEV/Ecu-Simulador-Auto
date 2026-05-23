@@ -6,6 +6,8 @@ export default function SettingsModal({ onClose }) {
   const [updateStatus, setUpdateStatus] = useState('idle'); // idle, checking, available, latest
   const [updateInfo, setUpdateInfo] = useState(null);
   const [loading, setLoading] = useState(false);
+  const [downloadProgress, setDownloadProgress] = useState(0);
+  const [downloadSpeed, setDownloadSpeed] = useState(0);
   
   // Estado del modo y conexión
   const [modoActual, setModoActual] = useState('diagnosticar');
@@ -75,6 +77,24 @@ export default function SettingsModal({ onClose }) {
     };
   }, []);
 
+  useEffect(() => {
+    if (!window?.electron?.onUpdateProgress) {
+      return undefined;
+    }
+
+    const unsubscribe = window.electron.onUpdateProgress((progress) => {
+      const percent = Math.max(0, Math.min(100, Math.round(progress?.percent || 0)));
+      setDownloadProgress(percent);
+      setDownloadSpeed(progress?.bytesPerSecond || 0);
+    });
+
+    return () => {
+      if (typeof unsubscribe === 'function') {
+        unsubscribe();
+      }
+    };
+  }, []);
+
   const handleChangeModo = async (nuevoModo) => {
     try {
       const API_BASE = window.location.protocol === 'http:' || window.location.protocol === 'https:' 
@@ -125,8 +145,9 @@ export default function SettingsModal({ onClose }) {
   };
 
   const handleDownloadUpdate = () => {
-    if (updateInfo?.releaseUrl) {
-      updateService.downloadUpdate(updateInfo.releaseUrl);
+    setDownloadProgress(0);
+    setDownloadSpeed(0);
+    if (updateService.downloadUpdate(updateInfo?.releaseUrl)) {
       setUpdateStatus('downloading');
     }
   };
@@ -273,6 +294,22 @@ export default function SettingsModal({ onClose }) {
                 <div className="spinner" />
                 <p>Descargando actualización...</p>
                 <p className="small-text">Se abrirá el instalador cuando termine</p>
+                <div className="update-progress-wrap">
+                  <div className="update-progress-bar">
+                    <div
+                      className="update-progress-fill"
+                      style={{ width: `${downloadProgress}%` }}
+                    />
+                  </div>
+                  <div className="update-progress-meta">
+                    <span>{downloadProgress}%</span>
+                    <span>
+                      {downloadSpeed > 0
+                        ? `${(downloadSpeed / 1024 / 1024).toFixed(2)} MB/s`
+                        : 'Preparando...'}
+                    </span>
+                  </div>
+                </div>
               </div>
             )}
 

@@ -3,7 +3,19 @@
  * Verifica y gestiona actualizaciones de la aplicación
  */
 
-const VERSION_URL = "https://raw.githubusercontent.com/MatiLagosDEV/Ecu-Simulador-Auto/main/Proyect_ECU_Simulador/Python%20arduino/Ecu%20Simulador/version.json";
+// La URL puede venir inyectada por Vite o por Electron.
+const getWindowUpdateUrl = () => {
+  try {
+    if (typeof window === 'undefined') return null;
+    if (window.__UPDATE_URL__) return window.__UPDATE_URL__;
+    if (window.electron && window.electron.updateUrl) return window.electron.updateUrl;
+    return null;
+  } catch {
+    return null;
+  }
+};
+
+const VERSION_URL = import.meta.env.VITE_VERSION_URL || getWindowUpdateUrl();
 
 export const updateService = {
   /**
@@ -24,6 +36,13 @@ export const updateService = {
    */
   async checkForUpdates() {
     try {
+      if (!VERSION_URL) {
+        return {
+          success: false,
+          message: 'No se configuró la URL de actualizaciones'
+        };
+      }
+
       const response = await fetch(VERSION_URL, {
         cache: "no-store" // Asegurar que siempre obtiene la versión más reciente
       });
@@ -31,7 +50,7 @@ export const updateService = {
       if (!response.ok) {
         return {
           success: false,
-          message: "No se pudo conectar con el servidor de actualizaciones"
+          message: `No se pudo conectar con el servidor de actualizaciones (HTTP ${response.status})`
         };
       }
 

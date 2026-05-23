@@ -16,8 +16,10 @@
     "preview": "vite preview",
     "electron": "electron .",
     "electron-dev": "npm run build && electron .",
-    "electron-build": "npm run build && electron-builder --publish never",
-    "electron-build-publish": "npm run build && electron-builder --publish always"
+    "prepare-backend": "node scripts/prepare-backend.js",
+    "electron-build": "npm run prepare-backend && npm run build && electron-builder --publish never",
+    "electron-build-publish": "npm run prepare-backend && npm run build && electron-builder --publish never",
+    "gh-upload": "node scripts/upload-release.js"
   },
   "dependencies": {
     "electron-is-dev": "^3.0.1",
@@ -41,6 +43,7 @@
   "build": {
     "appId": "com.matilagosdev.ecusimulador",
     "productName": "OBD-II Engine",
+    "publish": null,
     "directories": {
       "output": "dist-electron"
     },
@@ -51,8 +54,8 @@
     ],
     "extraResources": [
       {
-        "from": "../../backend/OBD2-Simulador",
-        "to": "backend",
+        "from": "resources/",
+        "to": "resources/",
         "filter": ["**/*"]
       }
     ],
