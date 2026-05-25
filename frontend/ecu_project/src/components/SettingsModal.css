@@ -161,6 +161,12 @@
   box-shadow: 0 4px 12px rgba(0, 212, 255, 0.3);
 }
 
+.btn-small {
+  width: auto;
+  padding: 8px 12px;
+  font-size: 12px;
+}
+
 .btn-success {
   background-color: #00d4a8;
   color: #000;
@@ -189,6 +195,88 @@
   display: flex;
   gap: 12px;
   margin-top: 16px;
+}
+
+.elm327-status {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.port-selector {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  background-color: rgba(0, 212, 255, 0.08);
+  border: 1px solid rgba(0, 212, 255, 0.18);
+  border-radius: 10px;
+  padding: 14px;
+}
+
+.port-selector-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.port-selector label {
+  color: #e9fbff;
+  font-size: 13px;
+  font-weight: 600;
+}
+
+.port-select {
+  width: 100%;
+  border: 1px solid rgba(255, 255, 255, 0.15);
+  border-radius: 8px;
+  background: rgba(255, 255, 255, 0.08);
+  color: #fff;
+  padding: 11px 12px;
+  font-size: 14px;
+  outline: none;
+}
+
+.port-select option {
+  background: #172136;
+  color: #fff;
+}
+
+.port-hint {
+  margin: 0;
+  color: #a6dff4;
+  font-size: 12px;
+  line-height: 1.4;
+}
+
+.status-message,
+.status-connected,
+.status-offline {
+  padding: 12px;
+  border-radius: 8px;
+}
+
+.status-message {
+  background-color: rgba(0, 212, 255, 0.08);
+  border: 1px solid rgba(0, 212, 255, 0.18);
+}
+
+.status-message p,
+.status-connected p,
+.status-offline p {
+  margin: 0;
+  font-size: 13px;
+  color: #fff;
+}
+
+.status-connected {
+  background-color: rgba(0, 212, 168, 0.12);
+  border: 1px solid rgba(0, 212, 168, 0.22);
+}
+
+.status-offline {
+  background-color: rgba(255, 255, 255, 0.06);
+  border: 1px dashed rgba(255, 255, 255, 0.18);
 }
 
 /* Status States */

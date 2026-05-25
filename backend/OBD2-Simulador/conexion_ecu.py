@@ -4,87 +4,142 @@ import threading
 from pids.codigos import nombre_codigos
 import serial.tools.list_ports
 
-# Función para detectar automáticamente el puerto COM del ELM327
+_serial_lock = threading.RLock()
+ecu = None
+
+
+def listar_puertos_disponibles():
+    """Devuelve los puertos disponibles con metadatos útiles para la UI."""
+    puertos = []
+    for puerto in serial.tools.list_ports.comports():
+        descripcion = puerto.description or ""
+        hwid = puerto.hwid or ""
+        descripcion_lower = descripcion.lower()
+        hwid_lower = hwid.lower()
+        puertos.append({
+            "device": puerto.device,
+            "description": descripcion,
+            "hwid": hwid,
+            "es_bluetooth": any(
+                keyword in descripcion_lower
+                for keyword in ["bluetooth", "rfcomm", "serial over bluetooth", "incoming", "outgoing"]
+            ) or "bluetooth" in hwid_lower,
+            "es_elm327": any(keyword in descripcion_lower for keyword in ["elm", "elm327", "obd"]),
+        })
+    return puertos
+
+
 def encontrar_puerto_elm327():
-    """
-    Detecta automáticamente el puerto COM del ELM327.
-    Busca por descripción o VID/PID del adaptador USB.
-    Retorna el puerto COM o None si no lo encuentra.
-    """
-    puertos = serial.tools.list_ports.comports()
-    
+    """Devuelve un puerto probable para un ELM327 sin abrirlo todavía."""
+    puertos = listar_puertos_disponibles()
+
     for puerto in puertos:
-        # Buscar por descripción común del ELM327 o por VID/PID
-        descripcion = puerto.description.lower()
-        hwid = puerto.hwid.lower() if puerto.hwid else ""
-        
-        # Criterios para identificar ELM327
-        if any(keyword in descripcion for keyword in ['elm', 'elm327', 'obd']):
-            print(f"[ECU] ELM327 detectado en: {puerto.device} - {puerto.description}")
-            return puerto.device
-        
-        # Alternativa: buscar por VID/PID común de adaptadores USB-Serial
-        if 'vid:pid' in hwid or 'ch340' in hwid or 'ft232' in hwid:
-            print(f"[ECU] Adaptador USB-Serial detectado en: {puerto.device} - {puerto.description}")
-            return puerto.device
-    
-    print("[ECU] ERROR: No se encontró ELM327. Puertos disponibles:")
-    for puerto in puertos:
-        print(f"  - {puerto.device}: {puerto.description}")
+        descripcion = puerto["description"].lower()
+        hwid = puerto["hwid"].lower()
+        if any(keyword in descripcion for keyword in ["elm", "elm327", "obd"]):
+            return puerto["device"]
+        if any(keyword in descripcion for keyword in ["bluetooth", "rfcomm", "serial over bluetooth", "outgoing"]) or "bluetooth" in hwid:
+            return puerto["device"]
+
+    if puertos:
+        return puertos[0]["device"]
     return None
 
-# Detectar puerto automáticamente
-puerto_auto = encontrar_puerto_elm327()
 
-# Conexión serie con el adaptador OBD-II (por ejemplo, ELM327 USB/Bluetooth)
-try:
-    if puerto_auto:
-        ecu = serial.Serial(puerto_auto, 9600, timeout=1)
-    else:
-        print("[ECU] Usando puerto por defecto COM3 (fallback)")
-        ecu = serial.Serial("COM3", 9600, timeout=1)
-except Exception as e:
-    print(f"[ECU] ERROR al abrir puerto serie: {e}")
+def _cerrar_ecu_actual():
+    global ecu
+    if ecu is not None:
+        try:
+            ecu.close()
+        except Exception:
+            pass
     ecu = None
 
-if ecu:
-    time.sleep(2)  # Pequeño retardo para que el adaptador quede listo
 
-# Lock reentrant — evita colisiones si Flask atiende peticiones en paralelo
-_serial_lock = threading.RLock()
+def conectar_elm327(puerto=None, baudrate=9600, timeout=0.5):
+    """Abre el puerto indicado y hace una inicialización ligera del ELM327."""
+    global ecu
 
-# --- Inicialización del adaptador OBD-II ---
-# Sin este paso muchos adaptadores quedan en un estado inicial y responden "NO DATA" a todo.
-try:
-    ecu.reset_input_buffer()
-    ecu.write(b'ATZ\n')      # Reset del chip
-    time.sleep(1.0)
-    ecu.reset_input_buffer()
-    for _cmd in [b'ATE0\n', b'ATL0\n', b'ATH1\n']:
-        ecu.write(_cmd)
-        time.sleep(0.1)
-        ecu.readline()       # Consumir "OK"
-    # Activar protocolo CAN 11/500 (protocolo 6) para dejar la ECU en CONTACTO
-    ecu.write(b'ATSP6\n')
-    time.sleep(1.5)          # Muchos adaptadores muestran "SEARCHING..." antes del OK
-    ecu.reset_input_buffer() # Limpiar SEARCHING...OK del buffer
-    print("[ECU] Protocolo CAN activado. Adaptador listo (CONTACTO).")
-except Exception as _e:
-    print(f"[ECU] Advertencia en inicialización: {_e}")
+    with _serial_lock:
+        if ecu is not None:
+            try:
+                if getattr(ecu, "port", None) == puerto and getattr(ecu, "is_open", True):
+                    return {"ok": True, "puerto": puerto, "message": "ELM327 ya estaba conectado"}
+            except Exception:
+                pass
+            _cerrar_ecu_actual()
+
+        puerto_objetivo = puerto or encontrar_puerto_elm327()
+        if not puerto_objetivo:
+            return {
+                "ok": False,
+                "puerto": None,
+                "error": "No se detectó ningún puerto compatible"
+            }
+
+        try:
+            ecu = serial.Serial(puerto_objetivo, baudrate, timeout=timeout)
+            time.sleep(1.0)
+            ecu.reset_input_buffer()
+            ecu.write(b'ATZ\n')
+            time.sleep(1.0)
+            ecu.reset_input_buffer()
+
+            for comando in [b'ATE0\n', b'ATL0\n', b'ATH1\n']:
+                ecu.write(comando)
+                time.sleep(0.12)
+                try:
+                    ecu.readline()
+                except Exception:
+                    pass
+
+            ecu.reset_input_buffer()
+            return {
+                "ok": True,
+                "puerto": puerto_objetivo,
+                "message": f"ELM327 conectado en {puerto_objetivo}"
+            }
+        except Exception as error:
+            _cerrar_ecu_actual()
+            return {
+                "ok": False,
+                "puerto": puerto_objetivo,
+                "error": str(error)
+            }
+
+
+def desconectar_elm327():
+    with _serial_lock:
+        _cerrar_ecu_actual()
+    return {"ok": True}
 
 # --- FUNCIONES OBD ---
 def enviar_pid(pid):
+    if ecu is None:
+        return "NO DATA"
+
     with _serial_lock:
-        ecu.write((pid+"\n").encode())
-        resp = ecu.readline().decode().strip()
-        time.sleep(0.03)  # 30 ms — previene saturación del ELM327
-    return resp
+        try:
+            ecu.write((pid + "\n").encode())
+            resp = ecu.readline().decode().strip()
+            time.sleep(0.03)  # 30 ms — previene saturación del ELM327
+            return resp or "NO DATA"
+        except Exception as error:
+            print(f"[ECU] Error enviando PID {pid}: {error}")
+            return "NO DATA"
 
 def leer_dtc():
+    if ecu is None:
+        return []
+
     with _serial_lock:
-        ecu.write(b"03\n")
-        resp = ecu.readline().decode().strip()
-        time.sleep(0.03)
+        try:
+            ecu.write(b"03\n")
+            resp = ecu.readline().decode().strip()
+            time.sleep(0.03)
+        except Exception as error:
+            print(f"[ECU] Error leyendo DTC: {error}")
+            return []
     print("\nRespuesta ECU:", resp)
 
     if resp == "" or "NO DATA" in resp:
@@ -105,10 +160,16 @@ def leer_dtc():
 
 def leer_pending_dtc():
     """Mode 07 — códigos pendientes (detectados pero no confirmados aún)."""
+    if ecu is None:
+        return []
+
     with _serial_lock:
-        ecu.write(b"07\n")
-        resp = ecu.readline().decode().strip()
-        time.sleep(0.03)
+        try:
+            ecu.write(b"07\n")
+            resp = ecu.readline().decode().strip()
+            time.sleep(0.03)
+        except Exception:
+            return []
     if resp == "" or "NO DATA" in resp:
         return []
     b = resp.split()
@@ -116,16 +177,30 @@ def leer_pending_dtc():
     return codigos
 
 def borrar_codigos():
+    if ecu is None:
+        return "NO CONNECTION"
+
     with _serial_lock:
-        ecu.write(b"04\n")
-        resp = ecu.readline().decode().strip()
-        time.sleep(0.03)
-    return resp
+        try:
+            ecu.write(b"04\n")
+            resp = ecu.readline().decode().strip()
+            time.sleep(0.03)
+            return resp
+        except Exception as error:
+            print(f"[ECU] Error borrando códigos: {error}")
+            return "NO CONNECTION"
 
 def borrar_codigo(codigo):
+    if ecu is None:
+        return "NO CONNECTION"
+
     with _serial_lock:
-        comando = f"DEL {codigo}\n"
-        ecu.write(comando.encode())
-        resp = ecu.readline().decode().strip()
-        time.sleep(0.03)
-    return resp
+        try:
+            comando = f"DEL {codigo}\n"
+            ecu.write(comando.encode())
+            resp = ecu.readline().decode().strip()
+            time.sleep(0.03)
+            return resp
+        except Exception as error:
+            print(f"[ECU] Error borrando código {codigo}: {error}")
+            return "NO CONNECTION"

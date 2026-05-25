@@ -8,6 +8,11 @@ export default function SettingsModal({ onClose }) {
   const [loading, setLoading] = useState(false);
   const [downloadProgress, setDownloadProgress] = useState(0);
   const [downloadSpeed, setDownloadSpeed] = useState(0);
+  const [puertosDisponibles, setPuertosDisponibles] = useState([]);
+  const [puertoSeleccionado, setPuertoSeleccionado] = useState('');
+  const [puertosLoading, setPuertosLoading] = useState(false);
+  const [conectando, setConectando] = useState(false);
+  const [conexionMensaje, setConexionMensaje] = useState('');
   
   // Estado del modo y conexión
   const [modoActual, setModoActual] = useState('diagnosticar');
@@ -21,8 +26,6 @@ export default function SettingsModal({ onClose }) {
   useEffect(() => {
     let isMounted = true;
     let interval = null;
-    let timeoutHandle = null;
-    let busquedaIniciada = false;
 
     const obtenerConfig = async () => {
       try {
@@ -39,33 +42,47 @@ export default function SettingsModal({ onClose }) {
             conectado: config.elm327_conectado,
             puerto: config.puerto_elm327
           });
-          
-          // Si acaba de empezar la búsqueda, iniciar timeout de 1 minuto
-          if (config.buscando_elm327 && !busquedaIniciada) {
-            busquedaIniciada = true;
-            timeoutHandle = setTimeout(() => {
-              if (isMounted) {
-                setElm327Status(prev => ({
-                  ...prev,
-                  buscando: false
-                }));
-                busquedaIniciada = false;
-              }
-            }, 60000); // 60 segundos
-          }
-          
-          // Si se detuvo la búsqueda, resetear flag
-          if (!config.buscando_elm327 && busquedaIniciada) {
-            busquedaIniciada = false;
-          }
         }
       } catch (error) {
         console.error('Error obteniendo configuración:', error);
       }
     };
+
+    const obtenerPuertos = async () => {
+      try {
+        setPuertosLoading(true);
+        const API_BASE = window.location.protocol === 'http:' || window.location.protocol === 'https:' 
+          ? '/api' 
+          : 'http://127.0.0.1:5000/api';
+
+        const response = await fetch(`${API_BASE}/puertos-disponibles`);
+        if (response.ok && isMounted) {
+          const data = await response.json();
+          const lista = Array.isArray(data.puertos) ? data.puertos : [];
+          setPuertosDisponibles(lista);
+
+          setPuertoSeleccionado((actual) => {
+            if (actual && lista.some((puerto) => puerto.device === actual)) {
+              return actual;
+            }
+            if (elm327Status.puerto && lista.some((puerto) => puerto.device === elm327Status.puerto)) {
+              return elm327Status.puerto;
+            }
+            return lista[0]?.device || '';
+          });
+        }
+      } catch (error) {
+        console.error('Error obteniendo puertos:', error);
+      } finally {
+        if (isMounted) {
+          setPuertosLoading(false);
+        }
+      }
+    };
     
     // Primera llamada inmediata
     obtenerConfig();
+    obtenerPuertos();
     
     // Actualizar estado cada 2 segundos
     interval = setInterval(obtenerConfig, 2000);
@@ -73,7 +90,6 @@ export default function SettingsModal({ onClose }) {
     return () => {
       isMounted = false;
       if (interval) clearInterval(interval);
-      if (timeoutHandle) clearTimeout(timeoutHandle);
     };
   }, []);
 
@@ -110,12 +126,93 @@ export default function SettingsModal({ onClose }) {
       if (response.ok) {
         const data = await response.json();
         setModoActual(data.modo);
+        setConexionMensaje('');
         if (nuevoModo === 'diagnosticar') {
-          setElm327Status({ buscando: true, conectado: false, puerto: null });
+          setElm327Status({ buscando: false, conectado: false, puerto: null });
+        } else {
+          setElm327Status({ buscando: false, conectado: false, puerto: null });
         }
       }
     } catch (error) {
       console.error('Error cambiando modo:', error);
+    }
+  };
+
+  const handleConectarElm327 = async () => {
+    try {
+      setConectando(true);
+      setConexionMensaje('');
+
+      const API_BASE = window.location.protocol === 'http:' || window.location.protocol === 'https:' 
+        ? '/api' 
+        : 'http://127.0.0.1:5000/api';
+
+      const response = await fetch(`${API_BASE}/elm327/conectar`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ puerto: puertoSeleccionado || null })
+      });
+
+      const data = await response.json();
+      setElm327Status({
+        buscando: Boolean(data.buscando_elm327),
+        conectado: Boolean(data.elm327_conectado),
+        puerto: data.puerto_elm327 || null
+      });
+
+      if (data.puerto_elm327) {
+        setPuertoSeleccionado(data.puerto_elm327);
+      }
+
+      setConexionMensaje(data.message || data.error || '');
+    } catch (error) {
+      console.error('Error conectando ELM327:', error);
+      setConexionMensaje('No se pudo conectar al puerto seleccionado');
+    } finally {
+      setConectando(false);
+    }
+  };
+
+  const handleDesconectarElm327 = async () => {
+    try {
+      setConectando(true);
+      const API_BASE = window.location.protocol === 'http:' || window.location.protocol === 'https:' 
+        ? '/api' 
+        : 'http://127.0.0.1:5000/api';
+
+      await fetch(`${API_BASE}/elm327/desconectar`, { method: 'POST' });
+      setElm327Status({ buscando: false, conectado: false, puerto: null });
+      setConexionMensaje('Conexión cerrada');
+    } catch (error) {
+      console.error('Error desconectando ELM327:', error);
+    } finally {
+      setConectando(false);
+    }
+  };
+
+  const handleRefrescarPuertos = async () => {
+    try {
+      setPuertosLoading(true);
+      const API_BASE = window.location.protocol === 'http:' || window.location.protocol === 'https:' 
+        ? '/api' 
+        : 'http://127.0.0.1:5000/api';
+
+      const response = await fetch(`${API_BASE}/puertos-disponibles`);
+      if (response.ok) {
+        const data = await response.json();
+        const lista = Array.isArray(data.puertos) ? data.puertos : [];
+        setPuertosDisponibles(lista);
+        setPuertoSeleccionado((actual) => {
+          if (actual && lista.some((puerto) => puerto.device === actual)) {
+            return actual;
+          }
+          return lista[0]?.device || '';
+        });
+      }
+    } catch (error) {
+      console.error('Error refrescando puertos:', error);
+    } finally {
+      setPuertosLoading(false);
     }
   };
 
@@ -193,19 +290,72 @@ export default function SettingsModal({ onClose }) {
             {/* Indicador de estado ELM327 */}
             {modoActual === 'diagnosticar' && (
               <div className="elm327-status">
-                {elm327Status.buscando && (
-                  <div className="status-searching">
-                    <p>Buscando interfaz ELM327 automáticamente...</p>
+                <div className="port-selector">
+                  <div className="port-selector-header">
+                    <label htmlFor="elm327-port">Puerto COM</label>
+                    <button
+                      className="btn btn-secondary btn-small"
+                      onClick={handleRefrescarPuertos}
+                      disabled={puertosLoading}
+                      type="button"
+                    >
+                      {puertosLoading ? 'Actualizando...' : 'Actualizar puertos'}
+                    </button>
+                  </div>
+
+                  <select
+                    id="elm327-port"
+                    className="port-select"
+                    value={puertoSeleccionado}
+                    onChange={(event) => setPuertoSeleccionado(event.target.value)}
+                  >
+                    <option value="">Detectar automáticamente</option>
+                    {puertosDisponibles.map((puerto) => (
+                      <option key={puerto.device} value={puerto.device}>
+                        {puerto.device} - {puerto.description || 'Sin descripción'}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+
+                <div className="button-group">
+                  <button
+                    className="btn btn-primary"
+                    onClick={handleConectarElm327}
+                    disabled={conectando}
+                    type="button"
+                  >
+                    {conectando ? 'Conectando...' : 'Conectar ELM327'}
+                  </button>
+                  <button
+                    className="btn btn-secondary"
+                    onClick={handleDesconectarElm327}
+                    disabled={conectando || !elm327Status.conectado}
+                    type="button"
+                  >
+                    Desconectar
+                  </button>
+                </div>
+
+                <p className="port-hint">
+                  Si Windows muestra dos puertos Bluetooth, prueba el de salida. El de entrada suele no responder.
+                </p>
+
+                {conexionMensaje && (
+                  <div className="status-message">
+                    <p>{conexionMensaje}</p>
                   </div>
                 )}
+
                 {elm327Status.conectado && elm327Status.puerto && (
                   <div className="status-connected">
                     <p>Conectado en <strong>{elm327Status.puerto}</strong></p>
                   </div>
                 )}
-                {!elm327Status.buscando && !elm327Status.conectado && (
+
+                {!elm327Status.conectado && (
                   <div className="status-offline">
-                    <p>No hay conexión con ELM327</p>
+                    <p>Selecciona un puerto y pulsa Conectar.</p>
                   </div>
                 )}
               </div>

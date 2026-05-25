@@ -9,6 +9,8 @@ import requests
 from vininfo import Vin
 from pids.motor import pids_motor
 from pids.bateria import pids_bateria
+import conexion_ecu as conexion_ecu_hw
+
 from utils.decodificadores import (
     decodificar_carga_motor,
     decodificar_tps,
@@ -55,9 +57,19 @@ if not MODO_SIMULADOR:
             leer_dtc as _leer_dtc_hw,
             borrar_codigos as _borrar_arduino_hw,
         )
-        # Verificamos si la conexión es válida
+        # Si no hay conexión todavía, mantenemos el backend vivo para que la UI
+        # pueda elegir un puerto manualmente.
         if ecu is None:
-            raise Exception("No se pudo inicializar la ECU")
+            print("[ECU] Sin conexión inicial al ELM327. Esperando conexión manual.")
+            _puerto_elm327 = None
+            _buscando_elm327 = False
+            _elm327_conectado = False
+        else:
+            try:
+                _puerto_elm327 = ecu.port
+            except Exception:
+                _puerto_elm327 = None
+            _elm327_conectado = True
             
     except Exception as e:
         # Si falla, imprimimos el error y activamos el modo simulador automáticamente
@@ -82,6 +94,37 @@ if MODO_SIMULADOR:
             _obd_debug_connection = obd.OBD(portstr="debug")
         except Exception:
             _obd_debug_connection = None
+
+
+def _sincronizar_estado_elm327(conectado=None, puerto=None, buscando=None):
+    """Actualiza el estado compartido de conexión con el ELM327."""
+    global ecu, _puerto_elm327, _buscando_elm327, _elm327_conectado, _tiempo_inicio_busqueda
+
+    ecu = conexion_ecu_hw.ecu
+    if conectado is not None:
+        _elm327_conectado = conectado
+    elif ecu is not None:
+        _elm327_conectado = True
+    else:
+        _elm327_conectado = False
+
+    if puerto is not None:
+        _puerto_elm327 = puerto
+    elif ecu is not None:
+        try:
+            _puerto_elm327 = ecu.port
+        except Exception:
+            _puerto_elm327 = None
+    else:
+        _puerto_elm327 = None
+
+    if buscando is not None:
+        _buscando_elm327 = buscando
+    elif not _elm327_conectado:
+        _buscando_elm327 = False
+
+    if _elm327_conectado:
+        _tiempo_inicio_busqueda = None
 
 
 # --- Motor de simulación OBD-II ---
@@ -132,7 +175,7 @@ _sim_codigos_posibles = [
     'P0420',
     'B0001',
 ]
-_sim_dtc_guardados = []  # lista de códigos actuales
+_sim_dtc_guardados = ['P0171', 'P0300', 'B0001']  # lista de códigos actuales (inicializados con ejemplos)
 _sim_dtc_pendientes = []  # lista de códigos pendientes (Mode 07)
 _sim_cantidad_fallas = 0
 
@@ -527,6 +570,9 @@ def detectar_tipo_conexion():
     if MODO_SIMULADOR:
         return 'Simulador OBD-II (debug)'
 
+    if ecu is None:
+        return 'Sin conexión'
+
     try:
         puerto = ecu.port
         for p in serial.tools.list_ports.comports():
@@ -548,6 +594,9 @@ def enviar_comando_limpio(comando):
     Envía un comando y limpia la respuesta de textos como 'SEARCHING...'
     o ecos del comando enviado.
     """
+    if ecu is None:
+        return 'NO DATA'
+
     try:
         ecu.write((comando + '\n').encode())
         for _ in range(3):
@@ -583,6 +632,9 @@ def _inicializar_elm():
     Secuencia estándar de inicialización que hace todo escáner real al conectarse:
     ATZ (reset) -> ATE0 (echo off) -> ATL0 (linefeeds off) -> ATH1 (headers on)
     """
+    if ecu is None:
+        return False
+
     try:
         ecu.reset_input_buffer()
         ecu.write(b'ATZ\n')
@@ -602,6 +654,9 @@ def _probar_protocolo(numero):
     Igual que un escáner real: si 010C devuelve datos válidos → protocolo correcto.
     Devuelve True si el protocolo funciona, False si no.
     """
+    if ecu is None:
+        return False
+
     try:
         ecu.write(f'ATSP{numero}\n'.encode())
 
@@ -650,6 +705,10 @@ def escanear_protocolo():
             'nombre': 'ISO 15765-4 CAN 11/500 (Simulado)',
             'conectado': True,
         }
+        return protocolo_activo
+
+    if ecu is None:
+        protocolo_activo = {'numero': 0, 'nombre': 'Sin conexión', 'conectado': False}
         return protocolo_activo
 
     _inicializar_elm()
@@ -775,6 +834,8 @@ def leer_vin():
         if MODO_SIMULADOR:
             # En modo simulador usamos un VIN fijo y válido
             vin = "JN1AZ4EHXDM501324"
+        elif ecu is None:
+            return {"vin": "Desconocido", "marca": "-", "pais": "-", "año": "-", "modelo": "-"}
         else:
             ecu.write(b"0902\n")  # PID estándar para VIN
             resp = ecu.readline().decode().strip()
@@ -1173,10 +1234,13 @@ def get_config():
 @app.route('/api/config-mode', methods=['POST'])
 def config_mode():
     """Cambia el modo de operación (simulador o diagnosticar)."""
-    global MODO_SIMULADOR, _modo_actual, _buscando_elm327, _tiempo_inicio_busqueda, _elm327_conectado
+    global MODO_SIMULADOR, _modo_actual, _buscando_elm327, _tiempo_inicio_busqueda, _elm327_conectado, _vin_cache
     
     data = request.get_json()
     nuevo_modo = data.get('mode', 'diagnosticar')
+    
+    # Limpiar caché del VIN cuando cambias de modo para forzar lectura nueva
+    _vin_cache = None
     
     if nuevo_modo == 'simulador':
         MODO_SIMULADOR = True
@@ -1184,12 +1248,15 @@ def config_mode():
         _buscando_elm327 = False
         _elm327_conectado = False
         _tiempo_inicio_busqueda = None
+        conexion_ecu_hw.desconectar_elm327()
+        _sincronizar_estado_elm327(conectado=False, buscando=False, puerto=None)
     elif nuevo_modo == 'diagnosticar':
         MODO_SIMULADOR = False
         _modo_actual = 'diagnosticar'
-        _buscando_elm327 = True
-        _elm327_conectado = False
-        _tiempo_inicio_busqueda = time.time()  # Iniciar cronómetro
+        _buscando_elm327 = False
+        _elm327_conectado = ecu is not None
+        _tiempo_inicio_busqueda = None
+        _sincronizar_estado_elm327(conectado=_elm327_conectado, buscando=False)
     
     return jsonify({
         'ok': True,
@@ -1197,7 +1264,7 @@ def config_mode():
         'mensaje': f'Modo cambiado a: {_modo_actual}',
         'buscando_elm327': _buscando_elm327,
         'elm327_conectado': _elm327_conectado,
-        'puerto_elm327': None
+        'puerto_elm327': _puerto_elm327
     })
 
 @app.route('/api/puertos-disponibles', methods=['GET'])
@@ -1214,6 +1281,56 @@ def puertos_disponibles():
     return jsonify({
         'puertos': puertos,
         'total': len(puertos)
+    })
+
+@app.route('/api/elm327/conectar', methods=['POST'])
+def conectar_elm327_manual():
+    """Conecta manualmente el puerto seleccionado por la UI."""
+    global MODO_SIMULADOR, _modo_actual
+
+    data = request.get_json(silent=True) or {}
+    puerto = (data.get('puerto') or '').strip() or None
+
+    if MODO_SIMULADOR:
+        return jsonify({
+            'ok': False,
+            'error': 'Primero cambia a modo diagnóstico para usar ELM327',
+            'buscando_elm327': False,
+            'elm327_conectado': False,
+            'puerto_elm327': None
+        }), 400
+
+    resultado = conexion_ecu_hw.conectar_elm327(puerto=puerto)
+    _sincronizar_estado_elm327(
+        conectado=resultado.get('ok', False),
+        puerto=resultado.get('puerto'),
+        buscando=False
+    )
+    _modo_actual = 'diagnosticar'
+    if resultado.get('ok'):
+        MODO_SIMULADOR = False
+
+    status_code = 200 if resultado.get('ok') else 400
+    return jsonify({
+        'ok': resultado.get('ok', False),
+        'message': resultado.get('message') or resultado.get('error') or 'No se pudo conectar',
+        'error': resultado.get('error'),
+        'buscando_elm327': _buscando_elm327,
+        'elm327_conectado': _elm327_conectado,
+        'puerto_elm327': _puerto_elm327
+    }), status_code
+
+
+@app.route('/api/elm327/desconectar', methods=['POST'])
+def desconectar_elm327_manual():
+    """Cierra la conexión manual actual si existe."""
+    conexion_ecu_hw.desconectar_elm327()
+    _sincronizar_estado_elm327(conectado=False, buscando=False, puerto=None)
+    return jsonify({
+        'ok': True,
+        'buscando_elm327': False,
+        'elm327_conectado': False,
+        'puerto_elm327': None
     })
 
 @app.route('/api/datos', methods=['GET'])
@@ -1291,6 +1408,18 @@ def get_codigos():
         'freeze_frame': freeze_frame,
     })
 
+
+@app.route('/api/_debug_nombres', methods=['GET'])
+def _debug_nombres():
+    """Endpoint de depuración: muestra tamaño y ejemplos de `nombre_codigos`."""
+    try:
+        from pids.codigos import nombre_codigos
+        keys = list(nombre_codigos.keys())
+        sample = keys[:10]
+        return jsonify({'len': len(nombre_codigos), 'sample': sample, 'P0300': nombre_codigos.get('P0300')}), 200
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
 @app.route('/api/codigos/borrar', methods=['POST'])
 def borrar_codigos_endpoint():
     try:
@@ -1307,6 +1436,9 @@ def _leer_rpm_raw():
     """
     if MODO_SIMULADOR:
         return _sim_rpm_actual()
+
+    if ecu is None:
+        return -1
 
     try:
         ecu.write(b"010C\n")
@@ -1326,6 +1458,9 @@ def _leer_voltaje_raw():
     """Lee voltaje de batería. Devuelve el valor en V o 0.0."""
     if MODO_SIMULADOR:
         return 14.1
+
+    if ecu is None:
+        return 0.0
 
     try:
         ecu.write(b"0142\n")
@@ -1359,6 +1494,9 @@ def estado_motor_inteligente():
             'voltaje': voltaje,
             'conexion': detectar_tipo_conexion(),
         })
+
+    if ecu is None:
+        return jsonify({'estado': 'APAGADO', 'rpm': 0, 'voltaje': voltaje, 'conexion': detectar_tipo_conexion()})
 
     try:
         ecu.write(b'010C\n')

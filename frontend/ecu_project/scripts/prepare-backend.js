@@ -16,22 +16,36 @@ console.log('ℹ backendSrc:', backendSrc);
 console.log('ℹ distExe:', distExe);
 console.log('ℹ resourcesDir:', resourcesDir);
 
-// 1. Si el ejecutable ya existe en backend/dist, evitamos volver a generarlo.
-if (fs.existsSync(distExe)) {
-  console.log('ℹ Ejecutable ya existe en backend/dist, se omite PyInstaller.');
-} else {
-  // Intentar generar ejecutable con PyInstaller
-  try {
-    console.log('📦 Ejecutando PyInstaller...');
-    execSync(`pyinstaller --onefile --name ecu-backend "${backendSrc}"`, {
-      cwd: path.join(__dirname, '../../../backend/OBD2-Simulador'),
-      stdio: 'inherit'
-    });
-  } catch (e) {
-    console.error('❌ Error al generar el ejecutable (PyInstaller falló):', e.message || e);
-    console.warn('⚠ Si ya generaste el exe manualmente, coloca backend/dist/ecu-backend.exe para que el build lo copie.');
-    process.exit(1);
+function getAddDataArgs() {
+  const dataDir = path.join(__dirname, '../../../backend/OBD2-Simulador/data');
+
+  if (!fs.existsSync(dataDir)) {
+    console.warn('⚠ No se encontró la carpeta data del backend:', dataDir);
+    return [];
   }
+
+  return fs.readdirSync(dataDir)
+    .filter((file) => file.toLowerCase().endsWith('.json'))
+    .map((file) => {
+      const source = path.join(dataDir, file);
+      return `--add-data "${source};data"`;
+    });
+}
+
+const addDataArgs = getAddDataArgs();
+
+// 1. Generar siempre el ejecutable para evitar reutilizar un binario sin datos.
+try {
+  console.log('📦 Ejecutando PyInstaller...');
+  const addDataCli = addDataArgs.length > 0 ? ` ${addDataArgs.join(' ')}` : '';
+  execSync(`pyinstaller --onefile --name ecu-backend${addDataCli} "${backendSrc}"`, {
+    cwd: path.join(__dirname, '../../../backend/OBD2-Simulador'),
+    stdio: 'inherit'
+  });
+} catch (e) {
+  console.error('❌ Error al generar el ejecutable (PyInstaller falló):', e.message || e);
+  console.warn('⚠ Si ya generaste el exe manualmente, coloca backend/dist/ecu-backend.exe para que el build lo copie.');
+  process.exit(1);
 }
 
 // 2. Copiar a la carpeta de Electron
