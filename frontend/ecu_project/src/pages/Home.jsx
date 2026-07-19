@@ -108,7 +108,9 @@ function Home({ licensePro, licenseKey, deviceId, onActivateLicense, onTransferL
   const [overlayConexionVisible, setOverlayConexionVisible] = useState(false);
   const [overlayPct, setOverlayPct] = useState(0);
   const [overlayMsg, setOverlayMsg] = useState('');
+  const [overlayConexionTitulo, setOverlayConexionTitulo] = useState('Estableciendo conexión OBD-II');
   const overlayConexionDoneRef = useRef(false);
+  const overlayConexionVisibleRef = useRef(false);
   const protocoloNombreRef = useRef('CAN Bus (ISO 15765-4)');
 
   // Overlay ciclo de arranque (ENCENDIDO → CONTACTO)
@@ -125,19 +127,20 @@ function Home({ licensePro, licenseKey, deviceId, onActivateLicense, onTransferL
   const prevEstadoRef = useRef('APAGADO');
 
   // Animación barra de progreso primera conexión
-  const lanzarOverlayConexion = () => {
+  const lanzarOverlayConexion = (protocoloNombre = 'CAN Bus (ISO 15765-4)') => {
+    const esSimulado = /simulad/i.test(String(protocoloNombre));
     overlayConexionDoneRef.current = false;
+    overlayConexionVisibleRef.current = true;
     setOverlayPct(0);
-    setOverlayMsg('Buscando protocolo de comunicación...');
+    setOverlayConexionTitulo(
+      esSimulado ? 'Iniciando simulación OBD-II' : 'Estableciendo conexión OBD-II'
+    );
+    setOverlayMsg(
+      esSimulado ? 'Preparando el entorno virtual de diagnóstico...' : 'Buscando protocolo de comunicación...'
+    );
     setOverlayConexionVisible(true);
 
-    // Lanzar detección real de protocolo en paralelo (solo una vez)
-    escanearProtocolo().then(res => {
-      if (!res || res.error) return;
-      if (res.nombre) {
-        protocoloNombreRef.current = res.nombre;
-      }
-    }).catch(() => {});
+    protocoloNombreRef.current = protocoloNombre || protocoloNombreRef.current;
 
     let i = 0;
     const avanzar = () => {
@@ -154,17 +157,21 @@ function Home({ licensePro, licenseKey, deviceId, onActivateLicense, onTransferL
       switch (paso.key) {
         case 'buscando1':
         case 'buscando2':
-          msg = 'Buscando protocolo de comunicación...';
+          msg = esSimulado
+            ? 'Preparando respuesta del simulador...'
+            : 'Buscando protocolo de comunicación...';
           break;
         case 'protocolo':
           msg = `Protocolo ${protocoloNombreRef.current} detectado.`;
           break;
         case 'vinculando':
-          msg = 'Vinculando con ECU del motor...';
+          msg = esSimulado
+            ? 'Sincronizando datos simulados...'
+            : 'Vinculando con ECU del motor...';
           break;
         case 'ok':
         default:
-          msg = '¡Conexión Exitosa!';
+          msg = esSimulado ? 'Simulación lista.' : '¡Conexión Exitosa!';
       }
       setOverlayMsg(msg);
       i++;
@@ -208,12 +215,21 @@ function Home({ licensePro, licenseKey, deviceId, onActivateLicense, onTransferL
         const [data, estadoData] = await Promise.all([getDatosObd2(), getEstadoMotor()]);
         if (!activo) return;
 
+        const protocoloConectado = Boolean(estadoData?.protocolo_activo?.conectado);
+        const protocoloNombre = estadoData?.protocolo_activo?.nombre || protocoloNombreRef.current;
+
         // Solo actualizar datos si el servidor respondió correctamente
         if (!data.error) {
-          setDatos(data);
-          setServidorOnline(true);
+          if (data.data_ready === false || !protocoloConectado) {
+            setDatos(DATOS_VACIOS);
+            setServidorOnline(false);
+          } else {
+            setDatos(data);
+            setServidorOnline(true);
+          }
           intervalo = INTERVALO_MIN; // volver al ritmo rápido
         } else {
+          setDatos(DATOS_VACIOS);
           setServidorOnline(false);
           intervalo = Math.min(intervalo * 2, INTERVALO_MAX); // backoff
         }
@@ -221,13 +237,23 @@ function Home({ licensePro, licenseKey, deviceId, onActivateLicense, onTransferL
         const nuevoEstado = estadoData.estado ?? 'APAGADO';
         const estadoAnterior = prevEstadoRef.current;
 
-        // Primera conexión: APAGADO/CONECTANDO → CONTACTO
+        // Primera conexión real: APAGADO/CONECTANDO → CONTACTO/ENCENDIDO con protocolo confirmado
         if (
           (estadoAnterior === 'APAGADO' || estadoAnterior === 'CONECTANDO') &&
           (nuevoEstado === 'CONTACTO' || nuevoEstado === 'ENCENDIDO') &&
           !overlayConexionDoneRef.current
         ) {
-          lanzarOverlayConexion();
+          lanzarOverlayConexion(protocoloNombre);
+        }
+
+        // Si todavía no hay protocolo confirmado y ya hay llave en contacto, mostrar la negociación
+        if (
+          (estadoAnterior === 'APAGADO' || estadoAnterior === 'CONECTANDO') &&
+          (nuevoEstado === 'CONTACTO' || nuevoEstado === 'ENCENDIDO') &&
+          !protocoloConectado &&
+          !overlayConexionVisibleRef.current
+        ) {
+          lanzarOverlayConexion(protocoloNombre);
         }
 
         // Ciclo arranque: CONTACTO → ENCENDIDO (se detectan las RPM)
@@ -238,6 +264,8 @@ function Home({ licensePro, licenseKey, deviceId, onActivateLicense, onTransferL
         // Reset bandera primera conexión cuando vuelve a APAGADO
         if (nuevoEstado === 'APAGADO') {
           overlayConexionDoneRef.current = false;
+          overlayConexionVisibleRef.current = false;
+          setOverlayConexionVisible(false);
           setOverlayArranqueVisible(false);
         }
 
@@ -388,7 +416,7 @@ function Home({ licensePro, licenseKey, deviceId, onActivateLicense, onTransferL
               </svg>
               <span className="contacto-pct">{overlayPct}%</span>
             </div>
-            <p className="contacto-title">Estableciendo conexión OBD-II</p>
+            <p className="contacto-title">{overlayConexionTitulo}</p>
             <p className="contacto-msg">{overlayMsg}</p>
             <div className="contacto-bar-track">
               <div className="contacto-bar-fill" style={{ width: `${overlayPct}%` }} />

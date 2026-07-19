@@ -2,9 +2,9 @@
   "name": "ecu_project",
   "private": true,
   "version": "1.0.0-beta",
-  "description": "Simulador de ECU con diagnóstico OBD-II",
+  "description": "Diagnóstico OBD-II Engine",
   "author": {
-    "name": "MatiLagosDEV",
+    "name": "Lagos Corporation",
     "email": "matilagos.dev@gmail.com"
   },
   "main": "electron/main.js",
@@ -41,7 +41,7 @@
     "vite": "^7.3.1"
   },
   "build": {
-    "appId": "com.matilagosdev.ecusimulador",
+    "appId": "com.lagoscorporation.ecusimulador",
     "productName": "OBD-II Engine",
     "publish": null,
     "directories": {

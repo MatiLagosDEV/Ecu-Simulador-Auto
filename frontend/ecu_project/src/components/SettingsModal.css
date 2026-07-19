@@ -197,6 +197,37 @@
   margin-top: 16px;
 }
 
+.connection-progress {
+  margin-top: 14px;
+  padding: 12px;
+  border-radius: 10px;
+  background: rgba(0, 212, 255, 0.08);
+  border: 1px solid rgba(0, 212, 255, 0.2);
+}
+
+.connection-progress p {
+  margin: 8px 0 0;
+  color: #dff8ff;
+  font-size: 12px;
+}
+
+.connection-progress-bar {
+  height: 4px;
+  border-radius: 999px;
+  background: linear-gradient(90deg, #00d4ff 0%, #00d4a8 50%, #00d4ff 100%);
+  background-size: 200% 100%;
+  animation: connectionShift 1.1s linear infinite;
+}
+
+@keyframes connectionShift {
+  from {
+    background-position: 0 0;
+  }
+  to {
+    background-position: 200% 0;
+  }
+}
+
 .elm327-status {
   display: flex;
   flex-direction: column;

@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { updateService } from '../services/updateService';
 import './SettingsModal.css';
 
@@ -19,8 +19,12 @@ export default function SettingsModal({ onClose }) {
   const [elm327Status, setElm327Status] = useState({
     buscando: false,
     conectado: false,
-    puerto: null
+    puerto: null,
+    protocolo: null
   });
+  const [backendRealError, setBackendRealError] = useState(null);
+  const autoConnectAttemptedRef = useRef(false);
+  const autoConnectInFlightRef = useRef(false);
 
   // Obtener configuración actual al montar el componente
   useEffect(() => {
@@ -37,10 +41,12 @@ export default function SettingsModal({ onClose }) {
         if (response.ok && isMounted) {
           const config = await response.json();
           setModoActual(config.modo);
+          setBackendRealError(config.backend_real_error || null);
           setElm327Status({
             buscando: config.buscando_elm327,
             conectado: config.elm327_conectado,
-            puerto: config.puerto_elm327
+            puerto: config.puerto_elm327,
+            protocolo: config.protocolo_activo || null
           });
         }
       } catch (error) {
@@ -94,6 +100,35 @@ export default function SettingsModal({ onClose }) {
   }, []);
 
   useEffect(() => {
+    const shouldAutoConnect =
+      modoActual === 'diagnosticar' &&
+      !elm327Status.conectado &&
+      !elm327Status.buscando &&
+      !conectando &&
+      puertosDisponibles.length > 0 &&
+      !autoConnectAttemptedRef.current &&
+      !autoConnectInFlightRef.current;
+
+    if (!shouldAutoConnect) {
+      return;
+    }
+
+    autoConnectAttemptedRef.current = true;
+    autoConnectInFlightRef.current = true;
+    setConexionMensaje('Intentando conexión automática al puerto más probable...');
+
+    const puertoPreferido = elm327Status.puerto || puertoSeleccionado || puertosDisponibles[0]?.device || '';
+    if (puertoPreferido && puertoPreferido !== puertoSeleccionado) {
+      setPuertoSeleccionado(puertoPreferido);
+    }
+
+    Promise.resolve(handleConectarElm327(puertoPreferido))
+      .finally(() => {
+        autoConnectInFlightRef.current = false;
+      });
+  }, [modoActual, elm327Status.conectado, elm327Status.buscando, conectando, puertosDisponibles, puertoSeleccionado]);
+
+  useEffect(() => {
     if (!window?.electron?.onUpdateProgress) {
       return undefined;
     }
@@ -126,11 +161,13 @@ export default function SettingsModal({ onClose }) {
       if (response.ok) {
         const data = await response.json();
         setModoActual(data.modo);
+          setBackendRealError(null);
         setConexionMensaje('');
+        autoConnectAttemptedRef.current = false;
         if (nuevoModo === 'diagnosticar') {
-          setElm327Status({ buscando: false, conectado: false, puerto: null });
+          setElm327Status({ buscando: false, conectado: false, puerto: null, protocolo: null });
         } else {
-          setElm327Status({ buscando: false, conectado: false, puerto: null });
+          setElm327Status({ buscando: false, conectado: false, puerto: null, protocolo: null });
         }
       }
     } catch (error) {
@@ -138,7 +175,7 @@ export default function SettingsModal({ onClose }) {
     }
   };
 
-  const handleConectarElm327 = async () => {
+  const handleConectarElm327 = async (puertoForzado = null) => {
     try {
       setConectando(true);
       setConexionMensaje('');
@@ -150,18 +187,23 @@ export default function SettingsModal({ onClose }) {
       const response = await fetch(`${API_BASE}/elm327/conectar`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ puerto: puertoSeleccionado || null })
+        body: JSON.stringify({ puerto: puertoForzado || puertoSeleccionado || null })
       });
 
       const data = await response.json();
       setElm327Status({
         buscando: Boolean(data.buscando_elm327),
         conectado: Boolean(data.elm327_conectado),
-        puerto: data.puerto_elm327 || null
+        puerto: data.puerto_elm327 || null,
+        protocolo: data.protocolo || null
       });
 
       if (data.puerto_elm327) {
         setPuertoSeleccionado(data.puerto_elm327);
+      }
+
+      if (data.ok) {
+        autoConnectAttemptedRef.current = true;
       }
 
       setConexionMensaje(data.message || data.error || '');
@@ -176,13 +218,14 @@ export default function SettingsModal({ onClose }) {
   const handleDesconectarElm327 = async () => {
     try {
       setConectando(true);
+      autoConnectAttemptedRef.current = true;
       const API_BASE = window.location.protocol === 'http:' || window.location.protocol === 'https:' 
         ? '/api' 
         : 'http://127.0.0.1:5000/api';
 
       await fetch(`${API_BASE}/elm327/desconectar`, { method: 'POST' });
-      setElm327Status({ buscando: false, conectado: false, puerto: null });
-      setConexionMensaje('Conexión cerrada');
+      setElm327Status({ buscando: false, conectado: false, puerto: null, protocolo: null });
+      setConexionMensaje(conectando ? 'Cancelando conexión...' : 'Conexión cerrada');
     } catch (error) {
       console.error('Error desconectando ELM327:', error);
     } finally {
@@ -330,16 +373,29 @@ export default function SettingsModal({ onClose }) {
                   <button
                     className="btn btn-secondary"
                     onClick={handleDesconectarElm327}
-                    disabled={conectando || !elm327Status.conectado}
+                    disabled={!conectando && !elm327Status.conectado}
                     type="button"
                   >
-                    Desconectar
+                    {conectando && !elm327Status.conectado ? 'Cancelar conexión' : 'Desconectar'}
                   </button>
                 </div>
+
+                {conectando && (
+                  <div className="connection-progress">
+                    <div className="connection-progress-bar" />
+                    <p>Conectando y negociando protocolo OBD-II...</p>
+                  </div>
+                )}
 
                 <p className="port-hint">
                   Si Windows muestra dos puertos Bluetooth, prueba el de salida. El de entrada suele no responder.
                 </p>
+
+                {backendRealError && (
+                  <div className="status-message status-error">
+                    <p>Backend real con error: {backendRealError}</p>
+                  </div>
+                )}
 
                 {conexionMensaje && (
                   <div className="status-message">
@@ -350,6 +406,11 @@ export default function SettingsModal({ onClose }) {
                 {elm327Status.conectado && elm327Status.puerto && (
                   <div className="status-connected">
                     <p>Conectado en <strong>{elm327Status.puerto}</strong></p>
+                    {elm327Status.protocolo && (
+                      <p>
+                        Protocolo: <strong>{elm327Status.protocolo.nombre || 'No detectado'}</strong>
+                      </p>
+                    )}
                   </div>
                 )}
 

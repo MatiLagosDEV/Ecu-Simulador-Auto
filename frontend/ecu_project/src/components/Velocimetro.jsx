@@ -124,9 +124,6 @@ function Velocimetro({ velocidad = 0, maxVel = 240 }) {
     );
   }
 
-  const redStart =
-    MIN_ANGLE + (maxVel * 0.8 / maxVel) * SWEEP;
-
   return (
 
     <div className="velocimetro-container velocimetro-pro">
@@ -158,11 +155,12 @@ function Velocimetro({ velocidad = 0, maxVel = 240 }) {
         />
 
         <path
-          d={arcPath(R_ARC, redStart, MAX_ANGLE)}
+          d={arcPath(R_ARC, MIN_ANGLE, MAX_ANGLE)}
           fill="none"
-          stroke="#ff1744"
+          stroke="#444"
           strokeWidth="18"
           strokeLinecap="round"
+          opacity="0.45"
         />
 
         {ticks}

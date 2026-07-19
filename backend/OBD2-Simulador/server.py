@@ -41,6 +41,7 @@ _puerto_elm327 = None
 _buscando_elm327 = False
 _elm327_conectado = False
 _tiempo_inicio_busqueda = None  # Timestamp de cuando empezó la búsqueda
+_backend_real_error = None
 
 try:
     import obd  # Opcional, solo para modo simulador avanzado
@@ -72,9 +73,12 @@ if not MODO_SIMULADOR:
             _elm327_conectado = True
             
     except Exception as e:
-        # Si falla, imprimimos el error y activamos el modo simulador automáticamente
-        print(f"Error detectado: {e}. Activando MODO_SIMULADOR.")
-        MODO_SIMULADOR = True 
+        # Si falla el backend real, no lo ocultamos como simulador.
+        # Así la UI puede mostrar el problema real de conexión/arranque.
+        print(f"Error detectado en backend real: {e}")
+        _backend_real_error = str(e)
+        MODO_SIMULADOR = False
+        _modo_actual = 'diagnosticar'
         ecu = None
         _enviar_pid_hw = None
         _leer_dtc_hw = None
@@ -1189,6 +1193,16 @@ def _consumo_inteligente():
 
 # --- Obtener todos los datos ---
 def get_all_data():
+    if not MODO_SIMULADOR and not protocolo_activo.get('conectado'):
+        return {
+            **{pid: {'nombre': nombre, 'valor': '0'} for pid, nombre in {**pids_motor, **pids_bateria}.items()},
+            'consumo_inteligente': {'valor': 'N/A', 'metodo': 'N/A'},
+            'vehiculo': {'vin': '-', 'marca': '-', 'pais': '-', 'año': '-', 'modelo': '-', 'motor': '-'},
+            'data_ready': False,
+            'protocolo_activo': protocolo_activo,
+            'error': 'ELM327 sin protocolo negociado',
+        }
+
     data = {}
     raws = {}  # respuestas hex crudas — reutilizadas para consumo, sin queries extra
     pids_todos = {**pids_motor, **pids_bateria}
@@ -1203,6 +1217,8 @@ def get_all_data():
 
     # VIN y info del vehículo
     data['vehiculo'] = leer_vin()
+    data['data_ready'] = True
+    data['protocolo_activo'] = protocolo_activo
     return data
 
 # --- Flask API ---
@@ -1227,14 +1243,16 @@ def get_config():
         'buscando_elm327': _buscando_elm327,
         'elm327_conectado': _elm327_conectado,
         'puerto_elm327': _puerto_elm327,
+        'protocolo_activo': protocolo_activo,
         'modo_simulador_activo': MODO_SIMULADOR,
+        'backend_real_error': _backend_real_error,
         'tiempo_buscando': time.time() - _tiempo_inicio_busqueda if _tiempo_inicio_busqueda else 0
     })
 
 @app.route('/api/config-mode', methods=['POST'])
 def config_mode():
     """Cambia el modo de operación (simulador o diagnosticar)."""
-    global MODO_SIMULADOR, _modo_actual, _buscando_elm327, _tiempo_inicio_busqueda, _elm327_conectado, _vin_cache
+    global MODO_SIMULADOR, _modo_actual, _buscando_elm327, _tiempo_inicio_busqueda, _elm327_conectado, _vin_cache, protocolo_activo
     
     data = request.get_json()
     nuevo_modo = data.get('mode', 'diagnosticar')
@@ -1245,17 +1263,21 @@ def config_mode():
     if nuevo_modo == 'simulador':
         MODO_SIMULADOR = True
         _modo_actual = 'simulador'
+        _backend_real_error = None
         _buscando_elm327 = False
         _elm327_conectado = False
         _tiempo_inicio_busqueda = None
         conexion_ecu_hw.desconectar_elm327()
         _sincronizar_estado_elm327(conectado=False, buscando=False, puerto=None)
+        protocolo_activo = {'numero': 6, 'nombre': 'ISO 15765-4 CAN 11/500 (Simulado)', 'conectado': True}
     elif nuevo_modo == 'diagnosticar':
         MODO_SIMULADOR = False
         _modo_actual = 'diagnosticar'
+        _backend_real_error = None
         _buscando_elm327 = False
         _elm327_conectado = ecu is not None
         _tiempo_inicio_busqueda = None
+        protocolo_activo = {'numero': 0, 'nombre': 'No detectado', 'conectado': False}
         _sincronizar_estado_elm327(conectado=_elm327_conectado, buscando=False)
     
     return jsonify({
@@ -1270,14 +1292,24 @@ def config_mode():
 @app.route('/api/puertos-disponibles', methods=['GET'])
 def puertos_disponibles():
     """Retorna lista de puertos COM disponibles para conectar ELM327."""
-    puertos = []
-    for puerto in serial.tools.list_ports.comports():
-        puertos.append({
-            'device': puerto.device,
-            'description': puerto.description,
-            'hwid': puerto.hwid,
-            'es_elm327': any(keyword in puerto.description.lower() for keyword in ['elm', 'elm327', 'obd'])
-        })
+    try:
+        from conexion_ecu import listar_puertos_disponibles
+        puertos = listar_puertos_disponibles()
+    except Exception:
+        puertos = []
+        for puerto in serial.tools.list_ports.comports():
+            descripcion = puerto.description or ''
+            hwid = puerto.hwid or ''
+            descripcion_lower = descripcion.lower()
+            hwid_lower = hwid.lower()
+            puertos.append({
+                'device': puerto.device,
+                'description': descripcion,
+                'hwid': hwid,
+                'es_bluetooth': any(keyword in descripcion_lower for keyword in ['bluetooth', 'rfcomm', 'serial over bluetooth', 'incoming', 'outgoing']) or 'bluetooth' in hwid_lower,
+                'es_elm327': any(keyword in descripcion_lower for keyword in ['elm', 'elm327', 'obd']),
+                'prioridad': 0,
+            })
     return jsonify({
         'puertos': puertos,
         'total': len(puertos)
@@ -1286,7 +1318,7 @@ def puertos_disponibles():
 @app.route('/api/elm327/conectar', methods=['POST'])
 def conectar_elm327_manual():
     """Conecta manualmente el puerto seleccionado por la UI."""
-    global MODO_SIMULADOR, _modo_actual
+    global MODO_SIMULADOR, _modo_actual, _buscando_elm327, _tiempo_inicio_busqueda, protocolo_activo
 
     data = request.get_json(silent=True) or {}
     puerto = (data.get('puerto') or '').strip() or None
@@ -1297,40 +1329,80 @@ def conectar_elm327_manual():
             'error': 'Primero cambia a modo diagnóstico para usar ELM327',
             'buscando_elm327': False,
             'elm327_conectado': False,
-            'puerto_elm327': None
+            'puerto_elm327': None,
+            'protocolo': protocolo_activo
         }), 400
 
     resultado = conexion_ecu_hw.conectar_elm327(puerto=puerto)
-    _sincronizar_estado_elm327(
-        conectado=resultado.get('ok', False),
-        puerto=resultado.get('puerto'),
-        buscando=False
-    )
     _modo_actual = 'diagnosticar'
-    if resultado.get('ok'):
-        MODO_SIMULADOR = False
 
-    status_code = 200 if resultado.get('ok') else 400
+    if not resultado.get('ok'):
+        _sincronizar_estado_elm327(
+            conectado=False,
+            puerto=resultado.get('puerto'),
+            buscando=False
+        )
+        protocolo_activo = {'numero': 0, 'nombre': 'Sin conexión', 'conectado': False}
+        return jsonify({
+            'ok': False,
+            'message': resultado.get('message') or resultado.get('error') or 'No se pudo conectar',
+            'error': resultado.get('error'),
+            'buscando_elm327': False,
+            'elm327_conectado': False,
+            'puerto_elm327': resultado.get('puerto'),
+            'protocolo': protocolo_activo
+        }), 400
+
+    MODO_SIMULADOR = False
+    _sincronizar_estado_elm327(
+        conectado=True,
+        puerto=resultado.get('puerto'),
+        buscando=True
+    )
+    _tiempo_inicio_busqueda = time.time()
+
+    try:
+        protocolo_resultado = escanear_protocolo()
+        protocolo_activo = protocolo_resultado
+    except Exception as e:
+        protocolo_resultado = {'numero': 0, 'nombre': 'Sin conexión', 'conectado': False, 'error': str(e)}
+        protocolo_activo = protocolo_resultado
+    finally:
+        _sincronizar_estado_elm327(
+            conectado=True,
+            puerto=resultado.get('puerto'),
+            buscando=False
+        )
+        _tiempo_inicio_busqueda = None
+
+    message = resultado.get('message') or resultado.get('error') or 'Conectado'
+    if not protocolo_resultado.get('conectado'):
+        message = f'{message}. Conexión abierta, pero no se pudo negociar el protocolo OBD-II.'
+
     return jsonify({
-        'ok': resultado.get('ok', False),
-        'message': resultado.get('message') or resultado.get('error') or 'No se pudo conectar',
+        'ok': True,
+        'message': message,
         'error': resultado.get('error'),
         'buscando_elm327': _buscando_elm327,
         'elm327_conectado': _elm327_conectado,
-        'puerto_elm327': _puerto_elm327
-    }), status_code
+        'puerto_elm327': _puerto_elm327,
+        'protocolo': protocolo_resultado
+    })
 
 
 @app.route('/api/elm327/desconectar', methods=['POST'])
 def desconectar_elm327_manual():
     """Cierra la conexión manual actual si existe."""
+    global protocolo_activo
     conexion_ecu_hw.desconectar_elm327()
     _sincronizar_estado_elm327(conectado=False, buscando=False, puerto=None)
+    protocolo_activo = {'numero': 0, 'nombre': 'Sin conexión', 'conectado': False}
     return jsonify({
         'ok': True,
         'buscando_elm327': False,
         'elm327_conectado': False,
-        'puerto_elm327': None
+        'puerto_elm327': None,
+        'protocolo': protocolo_activo
     })
 
 @app.route('/api/datos', methods=['GET'])
@@ -1493,20 +1565,23 @@ def estado_motor_inteligente():
             'rpm': rpm,
             'voltaje': voltaje,
             'conexion': detectar_tipo_conexion(),
+            'protocolo_activo': protocolo_activo,
         })
 
     if ecu is None:
-        return jsonify({'estado': 'APAGADO', 'rpm': 0, 'voltaje': voltaje, 'conexion': detectar_tipo_conexion()})
+        estado = 'CONECTANDO' if not protocolo_activo.get('conectado') else 'APAGADO'
+        return jsonify({'estado': estado, 'rpm': 0, 'voltaje': voltaje, 'conexion': detectar_tipo_conexion(), 'protocolo_activo': protocolo_activo})
 
     try:
         ecu.write(b'010C\n')
         resp = ecu.readline().decode().strip()
 
         if not resp or 'NO DATA' in resp.upper():
-            return jsonify({'estado': 'APAGADO', 'rpm': 0, 'voltaje': voltaje, 'conexion': detectar_tipo_conexion()})
+            estado = 'CONECTANDO' if not protocolo_activo.get('conectado') else 'APAGADO'
+            return jsonify({'estado': estado, 'rpm': 0, 'voltaje': voltaje, 'conexion': detectar_tipo_conexion(), 'protocolo_activo': protocolo_activo})
 
         if 'SEARCHING' in resp.upper() or 'ERROR' in resp.upper():
-            return jsonify({'estado': 'CONECTANDO', 'rpm': 0, 'voltaje': voltaje, 'conexion': detectar_tipo_conexion()})
+            return jsonify({'estado': 'CONECTANDO', 'rpm': 0, 'voltaje': voltaje, 'conexion': detectar_tipo_conexion(), 'protocolo_activo': protocolo_activo})
 
         datos = resp.split()
         if len(datos) >= 4:
@@ -1514,14 +1589,15 @@ def estado_motor_inteligente():
             B = int(datos[3], 16)
             valor_rpm = ((A * 256) + B) // 4
             if valor_rpm > 400:
-                return jsonify({'estado': 'ENCENDIDO', 'rpm': valor_rpm, 'voltaje': voltaje, 'conexion': detectar_tipo_conexion()})
+                return jsonify({'estado': 'ENCENDIDO', 'rpm': valor_rpm, 'voltaje': voltaje, 'conexion': detectar_tipo_conexion(), 'protocolo_activo': protocolo_activo})
             else:
-                return jsonify({'estado': 'CONTACTO', 'rpm': valor_rpm, 'voltaje': voltaje, 'conexion': detectar_tipo_conexion()})
+                return jsonify({'estado': 'CONTACTO', 'rpm': valor_rpm, 'voltaje': voltaje, 'conexion': detectar_tipo_conexion(), 'protocolo_activo': protocolo_activo})
 
-        return jsonify({'estado': 'CONECTANDO', 'rpm': 0, 'voltaje': voltaje, 'conexion': detectar_tipo_conexion()})
+        return jsonify({'estado': 'CONECTANDO', 'rpm': 0, 'voltaje': voltaje, 'conexion': detectar_tipo_conexion(), 'protocolo_activo': protocolo_activo})
 
     except Exception:
-        return jsonify({'estado': 'APAGADO', 'rpm': 0, 'voltaje': voltaje, 'conexion': detectar_tipo_conexion()})
+        estado = 'CONECTANDO' if not protocolo_activo.get('conectado') else 'APAGADO'
+        return jsonify({'estado': estado, 'rpm': 0, 'voltaje': voltaje, 'conexion': detectar_tipo_conexion(), 'protocolo_activo': protocolo_activo})
 
 @app.route('/api/protocolo', methods=['GET'])
 def get_protocolo_actual():
